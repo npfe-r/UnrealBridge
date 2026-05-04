@@ -104,6 +104,21 @@ Source type semantics:
 
 ---
 
+## Not in this library (don't invent these)
+
+This library is **read-only**. Do not assume a `rename_*` / `add_*` / `remove_*` / `redirect_*` / `register_*` UFUNCTION exists — none does. If you're tempted to suggest one in a recommendation, stop and use the real UE mechanism below instead.
+
+| Want to do | Real way |
+|---|---|
+| Rename a tag without breaking references | Add a `+GameplayTagRedirects=(OldTagName=...,NewTagName=...)` line to `Config/DefaultGameplayTags.ini` `[/Script/GameplayTags.GameplayTagsSettings]`, then edit the canonical tag entry. UE applies the redirect on next load. The editor's right-click → "Rename" does this for you when invoked manually. |
+| Add a new tag | Edit `Config/DefaultGameplayTags.ini` (`+GameplayTagList=(Tag="Foo.Bar",DevComment="...")`) or use the editor's GameplayTag picker → "Add New Tag". |
+| Remove a tag | Delete the `+GameplayTagList=(Tag=...)` line from the source ini / DataTable. Use `find_assets_referencing_tag(..., include_children=True)` first to confirm zero references. Add a `GameplayTagRedirects` to None for any stragglers. |
+| Programmatically write to tag config from Python | No bridge UFUNCTION. The agent should hand the user the ini edit instructions and let them apply it (or call out to a generic file-write step outside the bridge). |
+
+The full set of UFUNCTIONs in this library is exactly the three documented above (`find_assets_referencing_tag`, `list_all_registered_tags`, `get_tag_source_info`). The auto-generated `bridge_manifest.json` is the source of truth — preflight will reject calls to anything else.
+
+---
+
 ## Common workflows
 
 **"What references this tag I'm about to rename?"**
