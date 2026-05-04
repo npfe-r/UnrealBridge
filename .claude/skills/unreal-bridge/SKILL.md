@@ -42,7 +42,7 @@ Optional flags: `--project=<name|path>` (disambiguate when >1 editors run; or en
 ## Workflow
 
 1. **Always ping first.**
-2. Pick the execution mode by shape (table above): `exec` for one-liners, `exec --stdin` for multi-line one-shots (the **80% case**), `exec-file` only when you'll iterate / keep.
+2. **Default to `exec --stdin` heredoc, NOT `exec-file`.** A heredoc is the right mode for ~95% of one-shot work — no temp file to name, no cleanup, prompt stays self-contained, no risk of dangling scripts in `$TEMP` / `.tmp` / project root. **Only reach for `exec-file` when you genuinely intend to re-run the same script multiple times** (iterating on a fix, comparing runs). One-shots like "find X, list Y, build a report" → heredoc. If you find yourself writing `with open("/tmp/foo.py", "w")` followed by `bridge.py exec-file /tmp/foo.py`, stop and rewrite as a heredoc.
 3. `--json` for parseable output.
 4. Exit codes: `0` success · `1` runtime/transport · `2` bad CLI args · `3` AST preflight rejected.
 5. **If `exec` hangs**: from a separate terminal try `gamethread-ping` (high latency = GT mid-exec, queue will drain) or `resume` (BP breakpoint).
