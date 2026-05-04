@@ -41,16 +41,33 @@ UnrealBridge 是一个面向 AI Agent 的 Unreal Engine 编辑器桥接层，围
 ```mermaid
 flowchart LR
     Agent["AI Agent"]
-    CLI["bridge.py"]
-    Server["FUnrealBridgeServer"]
-    Libs["UnrealBridge*Library<br/>(18 个库, ~880 UFUNCTION)"]
-    UE["Unreal Editor 5.4+"]
 
-    Agent -- "shell" --> CLI
-    CLI -- "UDP 探测<br/>239.255.42.99:9876" --> Server
+    subgraph Host["Agent 主机"]
+      CLI["bridge.py"]
+      Pre["AST preflight<br/>（本地 — 调用前拦截，<br/>不发起 TCP）"]
+      Mani[("bridge_manifest.json<br/>18 个库 · 876 UFUNCTION<br/>由 tools/gen_manifest.py 重生成")]
+    end
+
+    subgraph UE["Unreal Editor 5.4+"]
+      Disc["FUnrealBridgeDiscovery<br/>UDP 应答"]
+      Server["FUnrealBridgeServer<br/>TCP · 长度前缀 JSON"]
+      Wrap["unreal_bridge<br/>kwargs-only Python 包装"]
+      Libs["18× UnrealBridge*Library"]
+      Reactive["UnrealBridgeReactiveSubsystem<br/>常驻事件处理器"]
+      Engine["UEditor · UWorld · Assets"]
+    end
+
+    Agent --> CLI
+    CLI -- "AST 拦截" --> Pre
+    Pre -. "查表" .-> Mani
+
+    CLI -- "UDP 探测<br/>239.255.42.99:9876" --> Disc
     CLI -- "TCP / JSON<br/>（端口由发现得到）" --> Server
-    Server -- "GameThread<br/>Python 派发" --> Libs
-    Libs --> UE
+    Server -- "GameThread<br/>ExecPythonCommandEx" --> Wrap
+    Wrap --> Libs
+    Libs --> Engine
+    Engine -. "事件触发" .-> Reactive
+    Reactive -. "执行注册脚本" .-> Libs
 ```
 
 ## 快速开始

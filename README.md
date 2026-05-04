@@ -41,16 +41,33 @@ UnrealBridge is an Unreal Engine editor bridging layer built for AI Agents. It p
 ```mermaid
 flowchart LR
     Agent["AI Agent"]
-    CLI["bridge.py"]
-    Server["FUnrealBridgeServer"]
-    Libs["UnrealBridge*Library<br/>(18 surfaces, ~880 UFUNCTIONs)"]
-    UE["Unreal Editor 5.4+"]
 
-    Agent -- "shell" --> CLI
-    CLI -- "UDP probe<br/>239.255.42.99:9876" --> Server
+    subgraph Host["Agent host"]
+      CLI["bridge.py"]
+      Pre["AST preflight<br/>(local — rejects bad calls<br/>before TCP send)"]
+      Mani[("bridge_manifest.json<br/>18 libraries · 876 UFUNCTIONs<br/>regen via tools/gen_manifest.py")]
+    end
+
+    subgraph UE["Unreal Editor 5.4+"]
+      Disc["FUnrealBridgeDiscovery<br/>UDP responder"]
+      Server["FUnrealBridgeServer<br/>TCP · length-prefixed JSON"]
+      Wrap["unreal_bridge<br/>kwargs-only Python wrapper"]
+      Libs["18× UnrealBridge*Library"]
+      Reactive["UnrealBridgeReactiveSubsystem<br/>persistent event handlers"]
+      Engine["UEditor · UWorld · Assets"]
+    end
+
+    Agent --> CLI
+    CLI -- "AST gate" --> Pre
+    Pre -. "lookup" .-> Mani
+
+    CLI -- "UDP probe<br/>239.255.42.99:9876" --> Disc
     CLI -- "TCP / JSON<br/>(port from discovery)" --> Server
-    Server -- "GameThread<br/>Python dispatch" --> Libs
-    Libs --> UE
+    Server -- "GameThread<br/>ExecPythonCommandEx" --> Wrap
+    Wrap --> Libs
+    Libs --> Engine
+    Engine -. "event fires" .-> Reactive
+    Reactive -. "invoke stored script" .-> Libs
 ```
 
 ## Quick Start
