@@ -89,6 +89,7 @@ Bypass with `--no-preflight` (rare). Preview with `bridge.py preflight <path>`.
 | `get_derived_classes` hangs / huge results | Don't pass `UObject` / `AActor` — narrow to most specific base. |
 | Multi-step BP edit feels chatty | Batch with `exec --stdin` heredoc or `exec-file`, not 3 inline `exec` calls. |
 | Pawn movement script freezes the editor | `time.sleep` inside `exec` blocks GameThread — see `bridge-gameplay-api.md` "chase a target" pattern (use `register_runtime_timer`). |
+| `print('中文' / '한글' / '日本語')` shows `���` or `涓枃` mojibake | Almost always **display-only** — the wire is byte-perfect UTF-8. See "Non-ASCII output (CJK / Greek / emoji)" below. |
 
 ## Reading UE object attributes — never `<obj>.<attr>`
 
@@ -189,6 +190,26 @@ After authoring/modifying a BP graph (and the user confirmed they want it):
 - **Size predict before spawning.** If placing several nodes in a row by hand, call `predict_node_size` for each kind first so X offsets don't overlap.
 - **Post-layout geometry reads.** After `auto_layout_graph` runs, Slate widgets don't refresh `NodePosX/Y` until they tick — so `get_rendered_node_info` returns *pre-layout* pin coords in the same exec. For crossing-detection / wire-length audits right after layout, read `get_node_layout(bp, fn, guid).pos_*` (authoritative from node model) and estimate pin Y as `pos_y + 40 + 22 × dir_index`. Only pay the open-graph + sleep cost when you specifically need Slate-accurate coords.
 - `auto_insert_reroutes` is intentionally NOT in the loop — empirically it produces many-knot routing that reads worse than the original. Opt in per-graph if a specific case needs it.
+
+## Non-ASCII output (CJK / Greek / emoji)
+
+Bridge is UTF-8 byte-perfect end-to-end since 2026-05-04. **Mojibake = display, not data.** Confirm with hex:
+
+```python
+print(got.encode('utf-8').hex(), '==', '测试'.encode('utf-8').hex())
+```
+
+If hex matches, it's a Windows cp936/cp1252 console issue — fix the *display*, not the bridge:
+
+| Situation | Fix |
+|---|---|
+| Piping `bridge.py ... > out.txt` writes cp936 | prefix `PYTHONIOENCODING=utf-8` (bash) / `$env:PYTHONIOENCODING='utf-8'` + `\| Out-File -Encoding utf8` (PS) |
+| Reading saved file back | `open(p, encoding='utf-8')` (or `utf-8-sig` for PS BOM) |
+| Calling bridge.py from another Python process | set `PYTHONIOENCODING=utf-8` in subprocess env |
+
+Verified: identifiers + literals in script source, exception messages/tracebacks, DataTable FName keys, asset paths with Chinese folders, save→restart→read persistence. Korean/Japanese use the same UTF-8 path — verify with hex if anything looks off.
+
+**Never write temp files to `C:\` root** — use `$env:TEMP\…` or `/tmp/…`.
 
 ## Safety Rules
 
