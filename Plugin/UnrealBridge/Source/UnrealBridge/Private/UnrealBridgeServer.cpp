@@ -739,6 +739,10 @@ FUnrealBridgeServer::FExecResult FUnrealBridgeServer::DoPythonExec(const FString
 		reinterpret_cast<const uint8*>(ScriptUtf8.Get()),
 		ScriptUtf8.Length());
 
+	// Output is base64-encoded before being printed because UE's Python stdout
+	// shim mangles non-ASCII characters into U+FFFD on the way back to FString.
+	// base64 is pure ASCII, so it survives the shim intact; the C++ side
+	// decodes it back to UTF-8 bytes and rebuilds an FString via FUTF8ToTCHAR.
 	FString WrappedScript = FString::Printf(TEXT(
 		"import base64 as _b64, sys, io as _io, traceback as _tb\n"
 		"_src = _b64.b64decode('%s').decode('utf-8')\n"
@@ -753,8 +757,9 @@ FUnrealBridgeServer::FExecResult FUnrealBridgeServer::DoPythonExec(const FString
 		"    sys.stdout, sys.stderr = _ub_old\n"
 		"    _ub_o, _ub_e = _ub_out.getvalue(), _ub_err.getvalue()\n"
 		"    _ub_out.close(); _ub_err.close()\n"
-		"    if _ub_o: print(_ub_o, end='')\n"
-		"    if _ub_e: print('__UB_ERR__' + _ub_e, end='')\n"
+		"    _eo = _b64.b64encode(_ub_o.encode('utf-8')).decode('ascii') if _ub_o else ''\n"
+		"    _ee = _b64.b64encode(_ub_e.encode('utf-8')).decode('ascii') if _ub_e else ''\n"
+		"    print('__UB_B64__' + _eo + '|' + _ee + '__UB_END__')\n"
 	), *ScriptB64);
 
 	FPythonCommandEx CommandEx;
@@ -774,19 +779,49 @@ FUnrealBridgeServer::FExecResult FUnrealBridgeServer::DoPythonExec(const FString
 		FullOutput = CommandEx.CommandResult;
 	}
 
-	const FString ErrSentinel = TEXT("__UB_ERR__");
-	int32 ErrIdx = FullOutput.Find(ErrSentinel);
-	if (ErrIdx != INDEX_NONE)
+	// Wrapper emits `__UB_B64__<out_b64>|<err_b64>__UB_END__`. Decode each
+	// half from base64 → UTF-8 bytes → FString via FUTF8ToTCHAR. Fallback to
+	// raw FullOutput-as-Error when the envelope is missing (catastrophic
+	// failure inside the wrapper itself, before the print could run).
+	const FString EnvBegin = TEXT("__UB_B64__");
+	const FString EnvEnd = TEXT("__UB_END__");
+	const int32 BeginIdx = FullOutput.Find(EnvBegin);
+	const int32 EndIdx = (BeginIdx != INDEX_NONE)
+		? FullOutput.Find(EnvEnd, ESearchCase::CaseSensitive, ESearchDir::FromStart, BeginIdx + EnvBegin.Len())
+		: INDEX_NONE;
+
+	if (BeginIdx != INDEX_NONE && EndIdx != INDEX_NONE)
 	{
-		Result.Output = FullOutput.Left(ErrIdx);
-		Result.Error = FullOutput.Mid(ErrIdx + ErrSentinel.Len());
-		Result.bSuccess = false;
+		const int32 PayloadStart = BeginIdx + EnvBegin.Len();
+		const FString Payload = FullOutput.Mid(PayloadStart, EndIdx - PayloadStart);
+
+		int32 SepIdx = INDEX_NONE;
+		Payload.FindChar(TEXT('|'), SepIdx);
+		const FString OutB64 = (SepIdx != INDEX_NONE) ? Payload.Left(SepIdx) : Payload;
+		const FString ErrB64 = (SepIdx != INDEX_NONE) ? Payload.Mid(SepIdx + 1) : FString();
+
+		auto DecodeB64ToUtf8FString = [](const FString& B64) -> FString
+		{
+			if (B64.IsEmpty()) return FString();
+			TArray<uint8> Bytes;
+			if (!FBase64::Decode(B64, Bytes) || Bytes.Num() == 0) return FString();
+			// Match the inbound-decode pattern used at line ~380 — FUTF8ToTCHAR
+			// with explicit length, then construct FString from .Get() + .Length()
+			// so we don't accidentally hit FString's ANSI-interpret constructor.
+			FUTF8ToTCHAR Conv(reinterpret_cast<const ANSICHAR*>(Bytes.GetData()), Bytes.Num());
+			return FString(Conv.Length(), Conv.Get());
+		};
+
+		Result.Output = DecodeB64ToUtf8FString(OutB64);
+		Result.Error = DecodeB64ToUtf8FString(ErrB64);
+		Result.bSuccess = bExecSuccess && Result.Error.IsEmpty();
 	}
 	else
 	{
-		Result.Output = FullOutput;
-		Result.Error = FString();
-		Result.bSuccess = bExecSuccess;
+		// Wrapper crashed before emitting the envelope — surface whatever UE captured.
+		Result.Output = FString();
+		Result.Error = FullOutput;
+		Result.bSuccess = false;
 	}
 
 	Result.Output.TrimEndInline();

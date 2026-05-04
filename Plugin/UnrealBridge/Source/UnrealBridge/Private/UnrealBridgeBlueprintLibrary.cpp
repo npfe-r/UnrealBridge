@@ -392,6 +392,35 @@ TArray<FBridgeFunctionInfo> UUnrealBridgeBlueprintLibrary::GetBlueprintFunctions
 		Result.Add(Info);
 	}
 
+	// Fallback: include user-authored function graphs that haven't been
+	// compiled yet (no UFunction on GeneratedClass exists for them). Without
+	// this, create_function_graph followed by get_blueprint_functions would
+	// silently return [] until the next recompile_blueprint.
+	if (!bIncludeInherited)
+	{
+		TSet<FString> AlreadyListed;
+		for (const FBridgeFunctionInfo& Info : Result)
+		{
+			AlreadyListed.Add(Info.Name);
+		}
+
+		for (const UEdGraph* Graph : BP->FunctionGraphs)
+		{
+			if (!Graph) continue;
+
+			const FString GraphName = Graph->GetFName().ToString();
+			if (GraphName.StartsWith(TEXT("UserConstructionScript"))) continue;
+			if (AlreadyListed.Contains(GraphName)) continue;
+
+			FBridgeFunctionInfo Info;
+			Info.Name = GraphName;
+			Info.Kind = TEXT("Function");
+			Info.Access = TEXT("Public");
+			Info.Description = TEXT("(uncompiled — call recompile_blueprint to refresh signature/params)");
+			Result.Add(Info);
+		}
+	}
+
 	return Result;
 }
 
