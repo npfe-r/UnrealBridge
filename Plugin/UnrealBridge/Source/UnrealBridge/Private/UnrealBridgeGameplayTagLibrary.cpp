@@ -257,7 +257,10 @@ bool UUnrealBridgeGameplayTagLibrary::AddGameplayTag(
 bool UUnrealBridgeGameplayTagLibrary::RenameGameplayTag(
 	const FString& OldTag, const FString& NewTag, bool bRenameChildren)
 {
-	if (OldTag.IsEmpty() || NewTag.IsEmpty() || OldTag == NewTag) return false;
+	// Case-sensitive: a case-only rename (e.g. "Foo.Bar" -> "foo.bar") is a legitimate
+	// op that produces a redirect. FString::operator== is case-insensitive, so use Equals
+	// with ESearchCase::CaseSensitive to let case-only renames through.
+	if (OldTag.IsEmpty() || NewTag.IsEmpty() || OldTag.Equals(NewTag, ESearchCase::CaseSensitive)) return false;
 	if (!IGameplayTagsEditorModule::IsAvailable())
 	{
 		UE_LOG(LogTemp, Warning, TEXT("RenameGameplayTag: GameplayTagsEditor module unavailable"));
