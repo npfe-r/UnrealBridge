@@ -31,7 +31,7 @@
       "TIMER"
     ]
   },
-  "generated_at": "2026-05-04T16:12:45+00:00",
+  "generated_at": "2026-05-04T17:35:05+00:00",
   "libraries": {
     "UnrealBridgeAnimLibrary": {
       "functions": {
@@ -15789,6 +15789,172 @@
         }
       }
     },
+    "UnrealBridgePropertyLibrary": {
+      "functions": {
+        "array_append_u_property": {
+          "doc": "X.array_append_u_property(object_or_class_path, property_path, element_export_text, fire_change_notify=True) -> bool",
+          "params": [
+            {
+              "default": null,
+              "has_default": false,
+              "name": "object_or_class_path",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "property_path",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "element_export_text",
+              "type": ""
+            },
+            {
+              "default": "True",
+              "has_default": true,
+              "name": "fire_change_notify",
+              "type": ""
+            }
+          ],
+          "returns": "bool"
+        },
+        "array_clear_u_property": {
+          "doc": "X.array_clear_u_property(object_or_class_path, property_path, fire_change_notify=True) -> bool",
+          "params": [
+            {
+              "default": null,
+              "has_default": false,
+              "name": "object_or_class_path",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "property_path",
+              "type": ""
+            },
+            {
+              "default": "True",
+              "has_default": true,
+              "name": "fire_change_notify",
+              "type": ""
+            }
+          ],
+          "returns": "bool"
+        },
+        "array_remove_u_property": {
+          "doc": "X.array_remove_u_property(object_or_class_path, property_path, index, fire_change_notify=True) -> bool",
+          "params": [
+            {
+              "default": null,
+              "has_default": false,
+              "name": "object_or_class_path",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "property_path",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "index",
+              "type": ""
+            },
+            {
+              "default": "True",
+              "has_default": true,
+              "name": "fire_change_notify",
+              "type": ""
+            }
+          ],
+          "returns": "bool"
+        },
+        "get_asset_cdo_path": {
+          "doc": "X.get_asset_cdo_path(asset_path) -> str",
+          "params": [
+            {
+              "default": null,
+              "has_default": false,
+              "name": "asset_path",
+              "type": ""
+            }
+          ],
+          "returns": "str"
+        },
+        "get_u_property_as_export_text": {
+          "doc": "X.get_u_property_as_export_text(object_or_class_path, property_path) -> (str, out_success=bool)",
+          "params": [
+            {
+              "default": null,
+              "has_default": false,
+              "name": "object_or_class_path",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "property_path",
+              "type": ""
+            }
+          ],
+          "returns": "(str, out_success=bool)"
+        },
+        "list_u_properties": {
+          "doc": "X.list_u_properties(object_or_class_path, include_inherited=True) -> Array[BridgeUPropertyInfo]",
+          "params": [
+            {
+              "default": null,
+              "has_default": false,
+              "name": "object_or_class_path",
+              "type": ""
+            },
+            {
+              "default": "True",
+              "has_default": true,
+              "name": "include_inherited",
+              "type": ""
+            }
+          ],
+          "returns": "Array[BridgeUPropertyInfo]"
+        },
+        "set_u_property_from_export_text": {
+          "doc": "X.set_u_property_from_export_text(object_or_class_path, property_path, value_export_text, fire_change_notify=True) -> bool",
+          "params": [
+            {
+              "default": null,
+              "has_default": false,
+              "name": "object_or_class_path",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "property_path",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "value_export_text",
+              "type": ""
+            },
+            {
+              "default": "True",
+              "has_default": true,
+              "name": "fire_change_notify",
+              "type": ""
+            }
+          ],
+          "returns": "bool"
+        }
+      }
+    },
     "UnrealBridgeReactiveLibrary": {
       "functions": {
         "clear_all": {
@@ -18067,6 +18233,16 @@
       "top_classes",
       "total_objects",
       "unique_classes"
+    ],
+    "BridgeUPropertyInfo": [
+      "cpp_access",
+      "declaring_class_path",
+      "flags",
+      "is_container",
+      "is_struct_value",
+      "metadata",
+      "name",
+      "type_name"
     ],
     "BridgeVariableInfo": [
       "blueprint_read_only",

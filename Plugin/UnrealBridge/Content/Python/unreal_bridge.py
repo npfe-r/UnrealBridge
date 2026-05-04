@@ -16,7 +16,7 @@ structural rather than mnemonic.
 
 import unreal
 
-_GENERATED_AT = '2026-05-04T16:12:45+00:00'
+_GENERATED_AT = '2026-05-04T17:35:05+00:00'
 _UE_VERSION = '5.7.1-48512491+++UE5+Release-5.7'
 
 class Anim:
@@ -4272,6 +4272,45 @@ class PoseSearch:
     def set_database_blend_space_sampling(*, database_path, index, h_samples, v_samples, use_grid_for_sampling, use_single_sample, blend_param_x, blend_param_y):
         """X.set_database_blend_space_sampling(database_path, index, h_samples, v_samples, use_grid_for_sampling, use_single_sample, blend_param_x, blend_param_y) -> bool"""
         return unreal.UnrealBridgePoseSearchLibrary.set_database_blend_space_sampling(database_path, index, h_samples, v_samples, use_grid_for_sampling, use_single_sample, blend_param_x, blend_param_y)
+
+
+class Property:
+    """Wraps unreal.UnrealBridgePropertyLibrary (kwargs-only)."""
+
+    @staticmethod
+    def array_append_u_property(*, object_or_class_path, property_path, element_export_text, fire_change_notify=True):
+        """X.array_append_u_property(object_or_class_path, property_path, element_export_text, fire_change_notify=True) -> bool"""
+        return unreal.UnrealBridgePropertyLibrary.array_append_u_property(object_or_class_path, property_path, element_export_text, fire_change_notify)
+
+    @staticmethod
+    def array_clear_u_property(*, object_or_class_path, property_path, fire_change_notify=True):
+        """X.array_clear_u_property(object_or_class_path, property_path, fire_change_notify=True) -> bool"""
+        return unreal.UnrealBridgePropertyLibrary.array_clear_u_property(object_or_class_path, property_path, fire_change_notify)
+
+    @staticmethod
+    def array_remove_u_property(*, object_or_class_path, property_path, index, fire_change_notify=True):
+        """X.array_remove_u_property(object_or_class_path, property_path, index, fire_change_notify=True) -> bool"""
+        return unreal.UnrealBridgePropertyLibrary.array_remove_u_property(object_or_class_path, property_path, index, fire_change_notify)
+
+    @staticmethod
+    def get_asset_cdo_path(*, asset_path):
+        """X.get_asset_cdo_path(asset_path) -> str"""
+        return unreal.UnrealBridgePropertyLibrary.get_asset_cdo_path(asset_path)
+
+    @staticmethod
+    def get_u_property_as_export_text(*, object_or_class_path, property_path):
+        """X.get_u_property_as_export_text(object_or_class_path, property_path) -> (str, out_success=bool)"""
+        return unreal.UnrealBridgePropertyLibrary.get_u_property_as_export_text(object_or_class_path, property_path)
+
+    @staticmethod
+    def list_u_properties(*, object_or_class_path, include_inherited=True):
+        """X.list_u_properties(object_or_class_path, include_inherited=True) -> Array[BridgeUPropertyInfo]"""
+        return unreal.UnrealBridgePropertyLibrary.list_u_properties(object_or_class_path, include_inherited)
+
+    @staticmethod
+    def set_u_property_from_export_text(*, object_or_class_path, property_path, value_export_text, fire_change_notify=True):
+        """X.set_u_property_from_export_text(object_or_class_path, property_path, value_export_text, fire_change_notify=True) -> bool"""
+        return unreal.UnrealBridgePropertyLibrary.set_u_property_from_export_text(object_or_class_path, property_path, value_export_text, fire_change_notify)
 
 
 class Reactive:
