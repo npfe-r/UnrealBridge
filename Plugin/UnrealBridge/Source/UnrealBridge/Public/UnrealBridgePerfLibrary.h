@@ -349,4 +349,19 @@ public:
 		const FString& MeshType = TEXT("all"),
 		const FString& Mode = TEXT("disk"),
 		int32 MaxGroups = 50);
+
+	/**
+	 * Top-N UClass histogram with byte totals — runtime-only. Per-class:
+	 * Key=class FName, Count=live instance count, TotalBytes=sum of
+	 * `GetResourceSizeBytes(EResourceSizeMode::Exclusive)` across instances.
+	 * SamplePaths holds up to 3 representative live object paths.
+	 *
+	 * Iterates every live UObject (`TObjectIterator<UObject>`); typical
+	 * editor session is 100k-2M objects so expect 50-300 ms. `TopN` clamped
+	 * to [1, 200]; rows sorted by TotalBytes descending. Disk mode is not
+	 * meaningful for this query (UObjects are runtime-side) — there is no
+	 * `mode` parameter.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "UnrealBridge|Perf")
+	static TArray<FBridgePerfBreakdownRow> GetUObjectMemoryBreakdown(int32 TopN = 20);
 };

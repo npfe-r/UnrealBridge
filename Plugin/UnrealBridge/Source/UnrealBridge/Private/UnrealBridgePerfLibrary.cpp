@@ -1018,3 +1018,47 @@ TArray<FBridgePerfBreakdownRow> UUnrealBridgePerfLibrary::GetMeshMemoryBreakdown
 	BridgePerfImpl::FinalizeBreakdownRowsByBytes(Out, MaxGroups);
 	return Out;
 }
+
+// ─── UObject memory breakdown (M1-4) ────────────────────────
+
+TArray<FBridgePerfBreakdownRow> UUnrealBridgePerfLibrary::GetUObjectMemoryBreakdown(int32 TopN)
+{
+	TArray<FBridgePerfBreakdownRow> Out;
+	const int32 ClampedTopN = FMath::Clamp(TopN, 1, 200);
+
+	// Walk every live UObject once: bump class counter + accumulate exclusive
+	// bytes + remember up to 3 sample paths per class.
+	TMap<FName, FBridgePerfBreakdownRow> ByClass;
+	ByClass.Reserve(4096);
+
+	for (TObjectIterator<UObject> It; It; ++It)
+	{
+		UObject* Obj = *It;
+		if (!Obj) continue;
+		UClass* Cls = Obj->GetClass();
+		if (!Cls) continue;
+
+		FBridgePerfBreakdownRow& Bucket = ByClass.FindOrAdd(Cls->GetFName());
+		if (Bucket.Key.IsEmpty())
+		{
+			Bucket.Key = Cls->GetFName().ToString();
+		}
+		Bucket.Count += 1;
+		// EResourceSizeMode::Exclusive: only objects "owned" by this UObject;
+		// avoids triple-counting referenced material/texture/mesh bytes that
+		// would inflate aggregate by orders of magnitude.
+		Bucket.TotalBytes += static_cast<int64>(Obj->GetResourceSizeBytes(EResourceSizeMode::Exclusive));
+		if (Bucket.SamplePaths.Num() < 3)
+		{
+			Bucket.SamplePaths.Add(Obj->GetPathName());
+		}
+	}
+
+	Out.Reserve(ByClass.Num());
+	for (const TPair<FName, FBridgePerfBreakdownRow>& Pair : ByClass)
+	{
+		Out.Add(Pair.Value);
+	}
+	BridgePerfImpl::FinalizeBreakdownRowsByBytes(Out, ClampedTopN);
+	return Out;
+}
