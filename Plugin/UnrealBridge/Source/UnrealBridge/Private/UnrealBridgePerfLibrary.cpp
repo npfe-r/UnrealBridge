@@ -13,10 +13,18 @@
 #include "DynamicRHI.h"
 #include "HAL/PlatformTime.h"
 #include "HAL/PlatformMemory.h"
+#include "HAL/FileManager.h"
 #include "UObject/UObjectIterator.h"
+#include "UObject/Package.h"
 #include "Misc/App.h"
 #include "Misc/EngineVersion.h"
 #include "Misc/DateTime.h"
+#include "Misc/PackageName.h"
+#include "Engine/World.h"
+#include "Engine/Level.h"
+#include "EngineUtils.h"
+#include "GameFramework/Actor.h"
+#include "WorldPartition/WorldPartition.h"
 
 // GAverageFPS / GAverageMS are defined in UnrealEngine.cpp and have no
 // canonical public header declaration — consumers (UnrealEdMisc, etc.) declare
@@ -59,6 +67,56 @@ namespace BridgePerfImpl
 			Total += PerGpuMs[i];
 		}
 		return Total;
+	}
+
+	/** Pick the editor world for breakdown queries — these are introspection
+	 *  ops on the level the user has open, never the live PIE world. */
+	static UWorld* GetEditorWorldForPerf()
+	{
+		if (GEditor)
+		{
+			return GEditor->GetEditorWorldContext().World();
+		}
+		return nullptr;
+	}
+
+	/** Short level name (package short name) for breakdown row keys. */
+	static FString GetLevelShortName(const ULevel* Level)
+	{
+		if (!Level)
+		{
+			return FString();
+		}
+		const UPackage* Pkg = Level->GetOutermost();
+		if (!Pkg)
+		{
+			return FString();
+		}
+		return FPackageName::GetShortName(Pkg->GetName());
+	}
+
+	/** Sort breakdown rows by (Count desc, Key asc) and clamp to MaxGroups. */
+	static void FinalizeBreakdownRows(
+		TArray<FBridgePerfBreakdownRow>& Rows,
+		int32 MaxGroups)
+	{
+		Rows.Sort([](const FBridgePerfBreakdownRow& A, const FBridgePerfBreakdownRow& B)
+		{
+			if (A.Count != B.Count)
+			{
+				return A.Count > B.Count;
+			}
+			if (A.TotalBytes != B.TotalBytes)
+			{
+				return A.TotalBytes > B.TotalBytes;
+			}
+			return A.Key < B.Key;
+		});
+		const int32 Clamp = FMath::Clamp(MaxGroups, 1, 100000);
+		if (Rows.Num() > Clamp)
+		{
+			Rows.SetNum(Clamp);
+		}
 	}
 }
 
@@ -223,5 +281,143 @@ FBridgePerfSnapshot UUnrealBridgePerfLibrary::GetPerfSnapshot(bool bIncludeUObje
 	Out.EngineVersion = FEngineVersion::Current().ToString();
 	Out.bWasInPie = (GEditor && GEditor->PlayWorld != nullptr);
 
+	return Out;
+}
+
+// ─── World actor breakdown (M1-3) ───────────────────────────
+
+namespace BridgePerfImpl
+{
+	/** Per-key accumulator: count + first 3 sample paths. */
+	struct FActorBreakdownAcc
+	{
+		int32 Count = 0;
+		TArray<FString> Samples;
+	};
+
+	/** Build a composite map key as TPair<LevelName, ClassName>. TPair has
+	 *  built-in GetTypeHash via TPair's ADL hook, so no custom hash needed.
+	 *  Either component is NAME_None when the corresponding group_by mode
+	 *  doesn't include it. */
+	using FActorBreakdownKey = TPair<FName, FName>;
+}
+
+TArray<FBridgePerfBreakdownRow> UUnrealBridgePerfLibrary::GetWorldActorBreakdown(
+	const FString& LevelFilter,
+	const FString& GroupBy,
+	int32 MaxGroups)
+{
+	TArray<FBridgePerfBreakdownRow> Out;
+
+	UWorld* World = BridgePerfImpl::GetEditorWorldForPerf();
+	if (!World)
+	{
+		return Out;
+	}
+
+	// Validate group_by; fall back to "class" silently to avoid empty results.
+	const bool bGroupByLevel = GroupBy.Equals(TEXT("level"), ESearchCase::IgnoreCase);
+	const bool bGroupByLevelClass = GroupBy.Equals(TEXT("level_class"), ESearchCase::IgnoreCase);
+	const bool bGroupByClass = !bGroupByLevel && !bGroupByLevelClass;
+
+	// World Partition projects: GetLevels() only returns currently-loaded
+	// actors. Listing unloaded actor descs requires the WP ActorDescContainer
+	// API which has churned across 5.3-5.7 (ActorDescContainer →
+	// ActorDescContainerInstance → ActorDescContainerCollection). For now
+	// return whatever GetLevels() gives and warn that WP has been detected;
+	// a separate UFUNCTION can list unloaded descs in a follow-up milestone.
+	// TODO(M1+): partition-aware enumeration via UWorldPartition::ForEachActorDescInstance
+	const bool bIsWorldPartition = (World->GetWorldPartition() != nullptr);
+	if (bIsWorldPartition)
+	{
+		UE_LOG(LogTemp, Verbose,
+			TEXT("UnrealBridgePerf: GetWorldActorBreakdown — World Partition detected; ")
+			TEXT("only loaded actors counted (unloaded descs not yet supported)"));
+	}
+
+	// Walk levels, build (level, class) → count + samples map.
+	TMap<BridgePerfImpl::FActorBreakdownKey, BridgePerfImpl::FActorBreakdownAcc> Acc;
+	Acc.Reserve(256);
+
+	const FString TrimmedFilter = LevelFilter.TrimStartAndEnd();
+
+	for (ULevel* Level : World->GetLevels())
+	{
+		if (!Level)
+		{
+			continue;
+		}
+		const FString LevelShort = BridgePerfImpl::GetLevelShortName(Level);
+		if (!TrimmedFilter.IsEmpty() && !LevelShort.Contains(TrimmedFilter, ESearchCase::IgnoreCase))
+		{
+			continue;
+		}
+		const FName LevelFName(*LevelShort);
+
+		for (AActor* Actor : Level->Actors)
+		{
+			if (!Actor || !IsValid(Actor))
+			{
+				continue;
+			}
+			UClass* Cls = Actor->GetClass();
+			if (!Cls)
+			{
+				continue;
+			}
+
+			// TPair<LevelName, ClassName>. NAME_None for the dimension we
+			// aren't grouping on.
+			BridgePerfImpl::FActorBreakdownKey MapKey;
+			if (bGroupByLevel)
+			{
+				MapKey = BridgePerfImpl::FActorBreakdownKey(LevelFName, NAME_None);
+			}
+			else if (bGroupByLevelClass)
+			{
+				MapKey = BridgePerfImpl::FActorBreakdownKey(LevelFName, Cls->GetFName());
+			}
+			else // bGroupByClass
+			{
+				MapKey = BridgePerfImpl::FActorBreakdownKey(NAME_None, Cls->GetFName());
+			}
+
+			BridgePerfImpl::FActorBreakdownAcc& Bucket = Acc.FindOrAdd(MapKey);
+			++Bucket.Count;
+			if (Bucket.Samples.Num() < 3)
+			{
+				Bucket.Samples.Add(Actor->GetPathName());
+			}
+		}
+	}
+
+	// Materialise into output rows. TPair: .Key=LevelName, .Value=ClassName.
+	Out.Reserve(Acc.Num());
+	for (const TPair<BridgePerfImpl::FActorBreakdownKey, BridgePerfImpl::FActorBreakdownAcc>& Entry : Acc)
+	{
+		const FName LevelKeyComp = Entry.Key.Key;
+		const FName ClassKeyComp = Entry.Key.Value;
+
+		FBridgePerfBreakdownRow Row;
+		if (bGroupByLevel)
+		{
+			Row.Key = LevelKeyComp.ToString();
+		}
+		else if (bGroupByLevelClass)
+		{
+			Row.Key = ClassKeyComp.ToString();
+			Row.LevelName = LevelKeyComp.ToString();
+		}
+		else // bGroupByClass
+		{
+			Row.Key = ClassKeyComp.ToString();
+		}
+		Row.Count = Entry.Value.Count;
+		Row.TotalBytes = 0; // actors have no on-disk size in this view
+		Row.SamplePaths = Entry.Value.Samples;
+		Out.Add(MoveTemp(Row));
+	}
+
+	BridgePerfImpl::FinalizeBreakdownRows(Out, MaxGroups);
 	return Out;
 }

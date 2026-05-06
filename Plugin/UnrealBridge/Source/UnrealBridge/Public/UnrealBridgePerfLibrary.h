@@ -149,6 +149,44 @@ struct FBridgeUObjectStats
 	TArray<FBridgeUObjectClassCount> TopClasses;
 };
 
+/**
+ * Aggregated row for memory / asset / actor breakdown queries on
+ * `UUnrealBridgePerfLibrary`. `Key` is the group identifier (folder path,
+ * class name, level name, compression format, etc. — depends on which
+ * UFUNCTION returned the row). `LevelName` is optional and only populated by
+ * actor-breakdown variants that need a per-level disambiguator on top of the
+ * primary key (group_by="level_class" → Key=class, LevelName=level).
+ */
+USTRUCT(BlueprintType)
+struct FBridgePerfBreakdownRow
+{
+	GENERATED_BODY()
+
+	/** Primary group key. Interpretation is per-UFUNCTION (see callers). */
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Perf")
+	FString Key;
+
+	/** Number of assets / actors / objects falling into this group. */
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Perf")
+	int32 Count = 0;
+
+	/** Total bytes attributed to this group (disk size or runtime size, see caller). */
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Perf")
+	int64 TotalBytes = 0;
+
+	/** Up to 3 representative paths for "show me what's in here" UI affordance. */
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Perf")
+	TArray<FString> SamplePaths;
+
+	/**
+	 * Optional secondary key. Empty for asset-only breakdowns; populated by
+	 * level-aware actor breakdowns when the primary key isn't already a level
+	 * (e.g. group_by="level_class" returns Key=class, LevelName=level).
+	 */
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Perf")
+	FString LevelName;
+};
+
 /** Bundled perf snapshot returned by GetPerfSnapshot. */
 USTRUCT(BlueprintType)
 struct FBridgePerfSnapshot
@@ -230,4 +268,26 @@ public:
 	 */
 	UFUNCTION(BlueprintCallable, Category = "UnrealBridge|Perf")
 	static FBridgePerfSnapshot GetPerfSnapshot(bool bIncludeUObjectStats = false, int32 UObjectTopN = 20);
+
+	/**
+	 * Aggregate the editor world's actors by class / level / level_class. Only
+	 * walks `World->GetLevels()` — the persistent level plus loaded streaming
+	 * sublevels. World Partition projects will report only currently-loaded
+	 * actors (the partition unloaded-desc enumeration is a TODO; it requires a
+	 * separate API path that has churned across 5.3-5.7). `LevelFilter` is a
+	 * substring matched against each level's package short name; empty means
+	 * "all levels". `GroupBy` ∈ {"class", "level", "level_class"}. `MaxGroups`
+	 * clamped to [1, 1000]; rows sorted by Count descending, ties broken by Key.
+	 *
+	 * Per-row schema:
+	 *   - GroupBy="class":         Key=actor class FName,    LevelName=""
+	 *   - GroupBy="level":         Key=level package short,   LevelName=""
+	 *   - GroupBy="level_class":   Key=actor class FName,     LevelName=level package short
+	 * TotalBytes is always 0 here (actors are runtime-only, no on-disk size).
+	 */
+	UFUNCTION(BlueprintCallable, Category = "UnrealBridge|Perf")
+	static TArray<FBridgePerfBreakdownRow> GetWorldActorBreakdown(
+		const FString& LevelFilter,
+		const FString& GroupBy = TEXT("class"),
+		int32 MaxGroups = 200);
 };
