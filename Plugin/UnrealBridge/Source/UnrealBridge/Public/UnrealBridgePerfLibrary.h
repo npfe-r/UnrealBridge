@@ -389,4 +389,25 @@ public:
 		const FString& GroupBy = TEXT("compression_format"),
 		const FString& Mode = TEXT("disk"),
 		int32 MaxGroups = 50);
+
+	/**
+	 * Top-N largest assets on disk, optionally filtered by UClass. Each row
+	 * is one asset: Key=full asset path (e.g. "/Game/Foo/Bar.Bar"), Count=1,
+	 * TotalBytes=on-disk package size, LevelName=class path of the asset
+	 * (e.g. "/Script/Engine.Texture2D"), SamplePaths empty.
+	 *
+	 * `ClassFilter`:
+	 *   - empty → all assets
+	 *   - "/Script/Engine.Texture2D" → exact class match (top-level path)
+	 *   - "Texture2D" → matched against the asset class short name
+	 * Subclasses are included by default — passing UTexture sweeps every
+	 * Texture2D / TextureCube / etc.
+	 *
+	 * `TopN` clamped to [1, 1000]. Walks AssetRegistry only — no LoadObject;
+	 * never-saved assets are skipped (their disk contribution is 0).
+	 */
+	UFUNCTION(BlueprintCallable, Category = "UnrealBridge|Perf")
+	static TArray<FBridgePerfBreakdownRow> GetAssetSizeTopN(
+		const FString& ClassFilter,
+		int32 TopN = 50);
 };

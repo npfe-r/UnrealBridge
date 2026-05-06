@@ -1245,3 +1245,112 @@ TArray<FBridgePerfBreakdownRow> UUnrealBridgePerfLibrary::GetAudioMemoryBreakdow
 	BridgePerfImpl::FinalizeBreakdownRowsByBytes(Out, MaxGroups);
 	return Out;
 }
+
+// ─── Asset size top-N (M1-6) ────────────────────────────────
+
+namespace BridgePerfImpl
+{
+	/** Resolve a class filter string to a UClass + the AR query class path.
+	 *  Returns true when the filter is empty (no filter — caller should walk
+	 *  every asset) or when a class was resolved. Sets OutClassPath to the
+	 *  matching class's TopLevelAssetPath; OutClass may be null if we got a
+	 *  short-name string that we couldn't resolve to a UClass at runtime. */
+	static bool ResolveClassFilter(
+		const FString& Filter,
+		FTopLevelAssetPath& OutClassPath,
+		UClass*& OutClass)
+	{
+		OutClass = nullptr;
+		OutClassPath = FTopLevelAssetPath();
+
+		const FString Trimmed = Filter.TrimStartAndEnd();
+		if (Trimmed.IsEmpty())
+		{
+			return true; // no filter
+		}
+
+		// Full path "/Script/Engine.Texture2D" or "/Game/.../BP_Foo.BP_Foo_C".
+		if (Trimmed.StartsWith(TEXT("/")))
+		{
+			const FTopLevelAssetPath Parsed(Trimmed);
+			if (Parsed.IsValid())
+			{
+				OutClassPath = Parsed;
+				OutClass = FindObject<UClass>(nullptr, *Trimmed);
+				return true;
+			}
+			return false;
+		}
+
+		// Short name — try resolving as a UClass via FindFirstObject.
+		// (UE 5.1+ deprecated FindObject<UClass>(ANY_PACKAGE, ...); the modern
+		// API is FindFirstObject which is available 5.3+.)
+		if (UClass* Cls = FindFirstObject<UClass>(*Trimmed, EFindFirstObjectOptions::EnsureIfAmbiguous))
+		{
+			OutClass = Cls;
+			OutClassPath = Cls->GetClassPathName();
+			return true;
+		}
+
+		// Couldn't resolve — agent passed a typo. Refuse to walk the entire
+		// AssetRegistry pretending the filter applied.
+		return false;
+	}
+}
+
+TArray<FBridgePerfBreakdownRow> UUnrealBridgePerfLibrary::GetAssetSizeTopN(
+	const FString& ClassFilter,
+	int32 TopN)
+{
+	TArray<FBridgePerfBreakdownRow> Out;
+	const int32 ClampedTopN = FMath::Clamp(TopN, 1, 1000);
+
+	IAssetRegistry& AR = FModuleManager::LoadModuleChecked<FAssetRegistryModule>("AssetRegistry").Get();
+
+	TArray<FAssetData> Assets;
+	const FString TrimmedFilter = ClassFilter.TrimStartAndEnd();
+	if (TrimmedFilter.IsEmpty())
+	{
+		// All assets. Use a wide-open ARFilter rather than walking every
+		// known class — the AR has a single internal call for this.
+		FARFilter Filter;
+		Filter.bIncludeOnlyOnDiskAssets = true;
+		Filter.bRecursivePaths = true;
+		Filter.PackagePaths.Add(FName(TEXT("/")));
+		Filter.bRecursiveClasses = true;
+		AR.GetAssets(Filter, Assets);
+	}
+	else
+	{
+		FTopLevelAssetPath ClassPath;
+		UClass* Cls = nullptr;
+		if (!BridgePerfImpl::ResolveClassFilter(TrimmedFilter, ClassPath, Cls))
+		{
+			UE_LOG(LogTemp, Warning,
+				TEXT("UnrealBridgePerf: GetAssetSizeTopN can't resolve class_filter '%s' — ")
+				TEXT("expected empty, a /Script/Module.Class path, or a known short class name"),
+				*ClassFilter);
+			return Out;
+		}
+		// Subclasses included by default — UTexture sweeps Texture2D / TextureCube / etc.
+		AR.GetAssetsByClass(ClassPath, Assets, /*bSearchSubClasses=*/true);
+	}
+
+	// Build per-asset rows, then top-N by TotalBytes.
+	Out.Reserve(FMath::Min(Assets.Num(), 4096));
+	for (const FAssetData& Data : Assets)
+	{
+		if (!Data.IsValid()) continue;
+		const int64 Bytes = BridgePerfImpl::GetPackageDiskSize(Data.PackageName);
+		if (Bytes <= 0) continue;
+
+		FBridgePerfBreakdownRow Row;
+		Row.Key = Data.GetSoftObjectPath().ToString();
+		Row.Count = 1;
+		Row.TotalBytes = Bytes;
+		Row.LevelName = Data.AssetClassPath.ToString(); // class path (overload)
+		Out.Add(MoveTemp(Row));
+	}
+	BridgePerfImpl::FinalizeBreakdownRowsByBytes(Out, ClampedTopN);
+	return Out;
+}
