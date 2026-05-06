@@ -11112,6 +11112,12 @@ namespace BridgeDebugState
 		Hit.SelfPath     = ActiveObject ? ActiveObject->GetPathName() : FString();
 		Hit.HitTime      = FPlatformTime::Seconds();
 
+		constexpr int32 MaxLen = 512;
+		auto CapValue = [](FString& S)
+		{
+			if (S.Len() > MaxLen) S = S.Left(MaxLen) + TEXT("…");
+		};
+
 		// Walk UFunction properties: params + locals share the Locals buffer.
 		uint8* Locals = StackFrame.Locals;
 		if (Locals && Func)
@@ -11129,12 +11135,34 @@ namespace BridgeDebugState
 
 				const void* Addr = Prop->ContainerPtrToValuePtr<void>(Locals);
 				Prop->ExportTextItem_Direct(V.Value, Addr, nullptr, const_cast<UObject*>(ActiveObject), PPF_None);
-				// Cap overly-long values so the snapshot stays readable.
-				constexpr int32 MaxLen = 512;
-				if (V.Value.Len() > MaxLen)
-				{
-					V.Value = V.Value.Left(MaxLen) + TEXT("…");
-				}
+				CapValue(V.Value);
+				Hit.Values.Add(MoveTemp(V));
+			}
+		}
+
+		// Walk instance UPROPERTYs of the executing object — but only those
+		// declared on a Blueprint-generated class. Including native parents
+		// would dump 50+ Engine UPROPERTYs (Actor / Pawn / Character internals)
+		// per hit, drowning the BP-authored variables the user actually wants.
+		if (ActiveObject)
+		{
+			UClass* InstanceClass = ActiveObject->GetClass();
+			for (TFieldIterator<FProperty> It(InstanceClass); It; ++It)
+			{
+				FProperty* Prop = *It;
+				if (!Prop) continue;
+				UClass* OwnerClass = Prop->GetOwnerClass();
+				if (!OwnerClass || !OwnerClass->IsChildOf<UBlueprintGeneratedClass>()) continue;
+
+				FBridgeBreakpointHitValue V;
+				V.Name = Prop->GetName();
+				V.Type = Prop->GetCPPType();
+				V.Kind = TEXT("instance");
+				V.OwnerClass = OwnerClass->GetPathName();
+
+				const void* Addr = Prop->ContainerPtrToValuePtr<void>(ActiveObject);
+				Prop->ExportTextItem_Direct(V.Value, Addr, nullptr, const_cast<UObject*>(ActiveObject), PPF_None);
+				CapValue(V.Value);
 				Hit.Values.Add(MoveTemp(V));
 			}
 		}

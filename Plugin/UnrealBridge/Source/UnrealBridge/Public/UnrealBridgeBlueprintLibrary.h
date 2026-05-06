@@ -1181,8 +1181,13 @@ struct FBridgeBreakpointHitValue
 	/** ExportText form of the value at the instant the breakpoint hit. */
 	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Blueprint") FString Value;
 
-	/** "param" | "local" | "return". */
+	/** "param" | "local" | "return" | "instance". */
 	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Blueprint") FString Kind;
+
+	/** For Kind="instance": path of the UClass that declares the variable
+	 *  (e.g. "/Game/Blueprints/BP_Hero.BP_Hero_C"). Empty for stack-frame
+	 *  values (param/local/return) — those are scoped to a function, not a class. */
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Blueprint") FString OwnerClass;
 };
 
 /** Snapshot of the most recent breakpoint hit for a Blueprint. */
