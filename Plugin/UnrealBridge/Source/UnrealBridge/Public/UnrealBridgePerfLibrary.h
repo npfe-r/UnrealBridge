@@ -364,4 +364,29 @@ public:
 	 */
 	UFUNCTION(BlueprintCallable, Category = "UnrealBridge|Perf")
 	static TArray<FBridgePerfBreakdownRow> GetUObjectMemoryBreakdown(int32 TopN = 20);
+
+	/**
+	 * Aggregate USoundWave assets by group with disk or runtime byte totals.
+	 *
+	 * `GroupBy` ∈ {"compression_format", "folder", "sample_rate_bucket",
+	 * "channel_count"}:
+	 *   - "compression_format" → Key = ESoundAssetCompressionType enum
+	 *     (e.g. "PlatformSpecific", "BinkAudio", "PCM")
+	 *   - "folder" → Key = leading content path (one level deep)
+	 *   - "sample_rate_bucket" → Key = "<8k", "8k-16k", "16k-22k", "22k-44k",
+	 *     "44k-48k", "48k-96k", ">=96k", "(unknown)"
+	 *   - "channel_count" → Key = "Mono" / "Stereo" / "5.1" / "7.1" / "Other"
+	 *
+	 * `Mode` ∈ {"disk", "runtime"} (default "disk"):
+	 *   - "disk" walks AssetRegistry without LoadObject; bytes from package
+	 *     file size; group keys come from TagsAndValues.
+	 *   - "runtime" iterates loaded USoundWave objects.
+	 *
+	 * `MaxGroups` clamped to [1, 1000]; rows sorted by TotalBytes descending.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "UnrealBridge|Perf")
+	static TArray<FBridgePerfBreakdownRow> GetAudioMemoryBreakdown(
+		const FString& GroupBy = TEXT("compression_format"),
+		const FString& Mode = TEXT("disk"),
+		int32 MaxGroups = 50);
 };

@@ -28,6 +28,7 @@
 #include "Engine/Texture.h"
 #include "Engine/StaticMesh.h"
 #include "Engine/SkeletalMesh.h"
+#include "Sound/SoundWave.h"
 #include "StaticMeshResources.h"
 #include "Rendering/SkeletalMeshRenderData.h"
 #include "Rendering/SkeletalMeshLODRenderData.h"
@@ -1060,5 +1061,187 @@ TArray<FBridgePerfBreakdownRow> UUnrealBridgePerfLibrary::GetUObjectMemoryBreakd
 		Out.Add(Pair.Value);
 	}
 	BridgePerfImpl::FinalizeBreakdownRowsByBytes(Out, ClampedTopN);
+	return Out;
+}
+
+// ─── Audio memory breakdown (M1-5) ──────────────────────────
+
+namespace BridgePerfImpl
+{
+	enum class EAudioGroupBy : uint8
+	{
+		CompressionFormat,
+		Folder,
+		SampleRateBucket,
+		ChannelCount,
+	};
+
+	static bool ParseAudioGroupBy(const FString& In, EAudioGroupBy& Out)
+	{
+		if (In.IsEmpty() || In.Equals(TEXT("compression_format"), ESearchCase::IgnoreCase))
+		{
+			Out = EAudioGroupBy::CompressionFormat;
+			return true;
+		}
+		if (In.Equals(TEXT("folder"), ESearchCase::IgnoreCase)) { Out = EAudioGroupBy::Folder; return true; }
+		if (In.Equals(TEXT("sample_rate_bucket"), ESearchCase::IgnoreCase)) { Out = EAudioGroupBy::SampleRateBucket; return true; }
+		if (In.Equals(TEXT("channel_count"), ESearchCase::IgnoreCase)) { Out = EAudioGroupBy::ChannelCount; return true; }
+		return false;
+	}
+
+	static FString SampleRateToBucket(int64 Hz)
+	{
+		if (Hz <= 0)        return TEXT("(unknown)");
+		if (Hz < 8000)      return TEXT("<8k");
+		if (Hz < 16000)     return TEXT("8k-16k");
+		if (Hz < 22050)     return TEXT("16k-22k");
+		if (Hz < 44100)     return TEXT("22k-44k");
+		if (Hz < 48000)     return TEXT("44k-48k");
+		if (Hz < 96000)     return TEXT("48k-96k");
+		return TEXT(">=96k");
+	}
+
+	static FString ChannelCountToBucket(int64 N)
+	{
+		if (N <= 0) return TEXT("(unknown)");
+		if (N == 1) return TEXT("Mono");
+		if (N == 2) return TEXT("Stereo");
+		if (N == 6) return TEXT("5.1");
+		if (N == 8) return TEXT("7.1");
+		return TEXT("Other");
+	}
+
+	static FString GetAudioGroupKeyFromAssetData(const FAssetData& Data, EAudioGroupBy Mode)
+	{
+		switch (Mode)
+		{
+		case EAudioGroupBy::Folder:
+			return GetTopLevelFolder(Data.PackagePath.ToString());
+		case EAudioGroupBy::CompressionFormat:
+		{
+			FString Tag;
+			// SoundAssetCompressionType is the modern tag (5.0+); covers PCM /
+			// ADPCM / BinkAudio / Opus / etc.
+			if (Data.GetTagValue(TEXT("SoundAssetCompressionType"), Tag) && !Tag.IsEmpty())
+			{
+				return Tag;
+			}
+			return TEXT("(unspecified)");
+		}
+		case EAudioGroupBy::SampleRateBucket:
+		{
+			return SampleRateToBucket(GetTagInt(Data, TEXT("SampleRate"), -1));
+		}
+		case EAudioGroupBy::ChannelCount:
+		{
+			return ChannelCountToBucket(GetTagInt(Data, TEXT("NumChannels"), -1));
+		}
+		}
+		return TEXT("(unknown)");
+	}
+
+	static FString GetAudioGroupKeyFromObject(const USoundWave* SW, EAudioGroupBy Mode)
+	{
+		if (!SW) return TEXT("(null)");
+		switch (Mode)
+		{
+		case EAudioGroupBy::Folder:
+		{
+			if (UPackage* Pkg = SW->GetOutermost())
+			{
+				const FString PackageName = Pkg->GetName();
+				int32 LastSlash = INDEX_NONE;
+				if (PackageName.FindLastChar(TEXT('/'), LastSlash))
+				{
+					return GetTopLevelFolder(PackageName.Left(LastSlash));
+				}
+				return PackageName;
+			}
+			return TEXT("(transient)");
+		}
+		case EAudioGroupBy::CompressionFormat:
+		{
+			const ESoundAssetCompressionType Type = SW->GetSoundAssetCompressionType();
+			const UEnum* Enum = StaticEnum<ESoundAssetCompressionType>();
+			if (Enum)
+			{
+				return Enum->GetNameStringByValue(static_cast<int64>(Type));
+			}
+			return FString::FromInt(static_cast<int32>(Type));
+		}
+		case EAudioGroupBy::SampleRateBucket:
+			return SampleRateToBucket(static_cast<int64>(SW->GetSampleRateForCurrentPlatform()));
+		case EAudioGroupBy::ChannelCount:
+			// USoundWave::NumChannels is a public int32 UPROPERTY across 5.3-5.7.
+			// (5.3 doesn't have a public USoundWave::GetNumChannels() — that
+			// method lives on FSoundWaveData/FSoundWaveProxy proxy types only.)
+			return ChannelCountToBucket(static_cast<int64>(SW->NumChannels));
+		}
+		return TEXT("(unknown)");
+	}
+}
+
+TArray<FBridgePerfBreakdownRow> UUnrealBridgePerfLibrary::GetAudioMemoryBreakdown(
+	const FString& GroupBy,
+	const FString& Mode,
+	int32 MaxGroups)
+{
+	TArray<FBridgePerfBreakdownRow> Out;
+
+	BridgePerfImpl::EAudioGroupBy ModeEnum = BridgePerfImpl::EAudioGroupBy::CompressionFormat;
+	if (!BridgePerfImpl::ParseAudioGroupBy(GroupBy, ModeEnum))
+	{
+		UE_LOG(LogTemp, Warning,
+			TEXT("UnrealBridgePerf: GetAudioMemoryBreakdown bad group_by '%s' — expected ")
+			TEXT("compression_format | folder | sample_rate_bucket | channel_count"),
+			*GroupBy);
+		return Out;
+	}
+
+	const bool bRuntimeMode = Mode.Equals(TEXT("runtime"), ESearchCase::IgnoreCase);
+	const bool bDiskMode = Mode.IsEmpty() || Mode.Equals(TEXT("disk"), ESearchCase::IgnoreCase);
+	if (!bRuntimeMode && !bDiskMode)
+	{
+		UE_LOG(LogTemp, Warning,
+			TEXT("UnrealBridgePerf: GetAudioMemoryBreakdown bad mode '%s' — expected disk | runtime"),
+			*Mode);
+		return Out;
+	}
+
+	TMap<FString, FBridgePerfBreakdownRow> Buckets;
+	Buckets.Reserve(32);
+
+	if (bRuntimeMode)
+	{
+		for (TObjectIterator<USoundWave> It; It; ++It)
+		{
+			USoundWave* SW = *It;
+			if (!SW || !IsValid(SW)) continue;
+			const int64 Bytes = static_cast<int64>(SW->GetResourceSizeBytes(EResourceSizeMode::EstimatedTotal));
+			const FString Key = BridgePerfImpl::GetAudioGroupKeyFromObject(SW, ModeEnum);
+			BridgePerfImpl::AccumulateBucket(Buckets, Key, Bytes, SW->GetPathName());
+		}
+	}
+	else
+	{
+		IAssetRegistry& AR = FModuleManager::LoadModuleChecked<FAssetRegistryModule>("AssetRegistry").Get();
+		TArray<FAssetData> Assets;
+		AR.GetAssetsByClass(USoundWave::StaticClass()->GetClassPathName(), Assets, /*bSearchSubClasses=*/true);
+		for (const FAssetData& Data : Assets)
+		{
+			if (!Data.IsValid()) continue;
+			const int64 Bytes = BridgePerfImpl::GetPackageDiskSize(Data.PackageName);
+			if (Bytes <= 0) continue;
+			const FString Key = BridgePerfImpl::GetAudioGroupKeyFromAssetData(Data, ModeEnum);
+			BridgePerfImpl::AccumulateBucket(Buckets, Key, Bytes, Data.GetSoftObjectPath().ToString());
+		}
+	}
+
+	Out.Reserve(Buckets.Num());
+	for (const TPair<FString, FBridgePerfBreakdownRow>& Pair : Buckets)
+	{
+		Out.Add(Pair.Value);
+	}
+	BridgePerfImpl::FinalizeBreakdownRowsByBytes(Out, MaxGroups);
 	return Out;
 }
