@@ -124,7 +124,14 @@ namespace BridgeGameplayTagOps
 			MissingLines.Num(), *IniPath);
 		return MissingLines.Num();
 #else
-		return 0;  // The serialization bug is 5.7+ only
+		// 5.5: UGameplayTagsSettings::GameplayTagRedirects is a global singleton
+		// with no per-source attribution — there is no way to reconstruct
+		// "what redirects should be in source X" from in-memory state, so the
+		// disk-vs-memory reconciliation this helper performs on 5.6+ has
+		// nothing to bind to. The 5.7 serialise-drop quirk also doesn't
+		// manifest on 5.5 (only the post-5.6 SourceTagList serializer hits it),
+		// so a no-op is correct on legacy.
+		return 0;
 #endif
 	}
 
@@ -465,8 +472,6 @@ bool UUnrealBridgeGameplayTagLibrary::RemoveGameplayTagRedirect(
 	const FGameplayTagSource* FoundSource = nullptr;
 #if !UE_VERSION_OLDER_THAN(5, 6, 0)
 	UGameplayTagsList* FoundList = nullptr;
-#else
-	int32 FoundSettingsIdx = INDEX_NONE;
 #endif
 	int32 FoundIdx = INDEX_NONE;
 
@@ -511,7 +516,6 @@ bool UUnrealBridgeGameplayTagLibrary::RemoveGameplayTagRedirect(
 				}
 				if (!bFoundInSource) continue;
 				FoundSource = Source;
-				FoundSettingsIdx = 0;
 				FoundIdx = 0;
 			}
 #endif
@@ -532,7 +536,18 @@ bool UUnrealBridgeGameplayTagLibrary::RemoveGameplayTagRedirect(
 #if !UE_VERSION_OLDER_THAN(5, 6, 0)
 	FoundList->GameplayTagRedirects.RemoveAt(FoundIdx);
 #else
-	// Legacy: no in-memory singleton to update; ini strip handles persistence
+	// 5.5: remove from the UGameplayTagsSettings singleton so callers reading
+	// the in-memory list (rather than disk) see the redirect gone.
+	// EditorRefreshGameplayTagTree below re-loads per-source tag tables from
+	// disk via UGameplayTagsList::LoadConfig, but does not unconditionally
+	// re-read the settings CDO — be explicit.
+	if (UGameplayTagsSettings* Settings = GetMutableDefault<UGameplayTagsSettings>())
+	{
+		Settings->GameplayTagRedirects.RemoveAll([&](const FGameplayTagRedirect& R)
+		{
+			return R.OldTagName == OldFName && R.NewTagName == NewFName;
+		});
+	}
 #endif
 
 	// 2) strip the matching line from the on-disk ini
