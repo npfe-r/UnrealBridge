@@ -2879,7 +2879,7 @@ public:
 		const FString& GraphName, const FString& NodeClassPath,
 		int32 NodePosX, int32 NodePosY);
 
-	// ─── Enhanced Input authoring (P0 of enhanced-input-roadmap.md) ─
+	// ─── Enhanced Input authoring ───────────────────────────────────
 
 	/**
 	 * Spawn a UK2Node_EnhancedInputAction event node bound to a specific
