@@ -83,6 +83,10 @@
 #endif
 #include "EngineUtils.h"
 #include "UObject/UObjectIterator.h"
+#include "K2Node_EnhancedInputAction.h"
+#include "K2Node_GetInputActionValue.h"
+#include "InputAction.h"
+#include "InputMappingContext.h"
 
 // ─── Helpers ─────────────────────────────────────────────────
 
@@ -11397,4 +11401,54 @@ bool UUnrealBridgeBlueprintLibrary::ChangeVariableTypeWithReport(
 		}
 	}
 	return true;
+}
+
+// ─── Enhanced Input — graph-node factories (B1) ─────────────────
+
+FString UUnrealBridgeBlueprintLibrary::AddEnhancedInputActionEventNode(
+	const FString& BlueprintPath, const FString& GraphName,
+	const FString& InputActionPath, int32 NodePosX, int32 NodePosY)
+{
+	UBlueprint* BP = LoadBP(BlueprintPath); if (!BP) return FString();
+	UEdGraph* Graph = BridgeBlueprintGraphWriteImpl::FindGraphByName(BP, GraphName);
+	if (!Graph) return FString();
+
+	UInputAction* IA = LoadObject<UInputAction>(nullptr, *InputActionPath);
+	if (!IA) return FString();
+
+	// Reuse existing event node bound to the same IA — matches the behavior
+	// of UInputActionEventNodeSpawner::FindExistingNode (one IA → one event
+	// node per graph; second invocation just repositions the existing one).
+	for (UEdGraphNode* N : Graph->Nodes)
+	{
+		if (UK2Node_EnhancedInputAction* Existing = Cast<UK2Node_EnhancedInputAction>(N))
+		{
+			if (Existing->InputAction == IA)
+			{
+				Existing->Modify();
+				Existing->NodePosX = NodePosX;
+				Existing->NodePosY = NodePosY;
+				FBlueprintEditorUtils::MarkBlueprintAsModified(BP);
+				return Existing->NodeGuid.ToString(EGuidFormats::Digits);
+			}
+		}
+	}
+
+	Graph->Modify();
+	BP->Modify();
+
+	UK2Node_EnhancedInputAction* Node = NewObject<UK2Node_EnhancedInputAction>(Graph);
+	// MUST set InputAction BEFORE AllocateDefaultPins — the ActionValue pin's
+	// type is derived from IA->ValueType inside AllocateDefaultPins via
+	// UK2Node_GetInputActionValue::GetValueCategory(InputAction).
+	Node->InputAction = IA;
+	Node->CreateNewGuid();
+	Node->NodePosX = NodePosX;
+	Node->NodePosY = NodePosY;
+	Graph->AddNode(Node, /*bFromUI*/false, /*bSelectNewNode*/false);
+	Node->PostPlacedNewNode();
+	Node->AllocateDefaultPins();
+
+	FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(BP);
+	return Node->NodeGuid.ToString(EGuidFormats::Digits);
 }

@@ -171,10 +171,22 @@ def run_build(project_dir: pathlib.Path, verbose: bool) -> int:
 def launch_editor(editor_exe: pathlib.Path, uproject: pathlib.Path) -> None:
     print(f"[rebuild] launching: {editor_exe} {uproject.name}")
     # Detach so this script returns as soon as the editor starts.
-    # Windows: CREATE_NEW_PROCESS_GROUP + DETACHED_PROCESS.
+    # Windows: CREATE_NEW_PROCESS_GROUP + CREATE_NO_WINDOW.
+    #
+    # Do NOT use DETACHED_PROCESS here. DETACHED_PROCESS leaves the new
+    # process with no console at all and INVALID_HANDLE_VALUE for stdio.
+    # When UE later spawns ShaderCompileWorker children with handle
+    # inheritance, SCW's stdio init either fails or deadlocks — the editor
+    # then hangs on its global-shader-compile barrier with zero SCW
+    # subprocesses ever appearing in tasklist (visible symptom: editor at
+    # ~2 GB RAM, idle CPU, log silent for minutes after the last
+    # `LogShaderCompilers: Num Already Dispatched: …` line).
+    # CREATE_NO_WINDOW gives the editor its own (hidden) console with
+    # valid stdio handles, which is what double-clicking the .uproject
+    # in Explorer effectively does.
     flags = 0
     if os.name == "nt":
-        flags = 0x00000200 | 0x00000008  # CREATE_NEW_PROCESS_GROUP | DETACHED_PROCESS
+        flags = 0x00000200 | 0x08000000  # CREATE_NEW_PROCESS_GROUP | CREATE_NO_WINDOW
     subprocess.Popen(
         [str(editor_exe), str(uproject)],
         creationflags=flags,

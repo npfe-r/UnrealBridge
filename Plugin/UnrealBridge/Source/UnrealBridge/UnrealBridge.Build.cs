@@ -46,6 +46,8 @@ public class UnrealBridge : ModuleRules
 			"NavigationSystem",
 			"Navmesh",
 			"EnhancedInput",
+			"InputBlueprintNodes",
+			"InputEditor",
 			"Projects",
 			"Slate",
 			"SlateCore",

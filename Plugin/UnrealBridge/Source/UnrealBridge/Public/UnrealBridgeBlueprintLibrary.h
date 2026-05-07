@@ -2856,6 +2856,29 @@ public:
 		const FString& GraphName, const FString& NodeClassPath,
 		int32 NodePosX, int32 NodePosY);
 
+	// ─── Enhanced Input authoring (P0 of enhanced-input-roadmap.md) ─
+
+	/**
+	 * Spawn a UK2Node_EnhancedInputAction event node bound to a specific
+	 * UInputAction asset. The asset reference is set BEFORE AllocateDefaultPins
+	 * so the node ships with its full pin set: 5 exec out pins
+	 * (Triggered/Started/Ongoing/Canceled/Completed) + ActionValue (typed by
+	 * the IA's ValueType) + ElapsedSeconds + TriggeredSeconds + InputAction.
+	 *
+	 * Reuses an existing node bound to the same IA if one already lives on
+	 * the graph (matches UInputActionEventNodeSpawner::FindExistingNode).
+	 *
+	 * The Blueprint must support input events (Pawn/Actor/PlayerController/...)
+	 * and the graph must not be a construction script — caller's
+	 * responsibility; this function does not preflight.
+	 *
+	 * @return GUID of the new (or reused) node, or "" on failure.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "UnrealBridge|Blueprint")
+	static FString AddEnhancedInputActionEventNode(const FString& BlueprintPath,
+		const FString& GraphName, const FString& InputActionPath,
+		int32 NodePosX, int32 NodePosY);
+
 	// ─── Editor focus-state query (#17) ─────────────────────────────
 
 	/**
