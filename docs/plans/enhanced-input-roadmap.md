@@ -123,16 +123,16 @@
 
 ## 3. 优先级 / 实施顺序
 
-P0（解锁"agent 能从零写一个可玩 Pawn"这条主线 —— 直接对应用户反馈）：
+P0（解锁"agent 能从零写一个可玩 Pawn"这条主线 —— 直接对应用户反馈）：**全部交付 2026-05-07。**
 
-| 排名 | 项 | 估时 | 解锁能力 |
+| 排名 | 项 | 状态 | 解锁能力 |
 |---|---|---|---|
-| 1 | **B1 AddEnhancedInputActionEventNode** | 小-中 | EnhancedInput 节点能放下来、有 Triggered/ActionValue pin 可连 |
-| 2 | **B6 AddGetInputActionValueNode** | 小 | ActionValue 拆出真实 bool/Axis2D 才能驱动 movement |
-| 3 | **B7 AddBindActionCallNode** | 中 | Pawn BP 的 SetupPlayerInputComponent 路径能完整生成 |
-| 4 | **A1 CreateInputAction / A2 CreateInputMappingContext** | 小 | 不再依赖手动建资产 |
-| 5 | **A4 AddTriggerToIA / A6 AddModifierToIA** | 中 | `IA_Move` 加 `DeadZone + SwizzleAxis YXZ`、`IA_Jump` 加 `Pressed` 这套基本配置 |
-| 6 | **C4 ScaffoldEnhancedInputPawn** | 中-大 | 1~5 串成"一行 API 出可玩 Pawn"；P0 的总验收点 |
+| 1 | ~~**B1 AddEnhancedInputActionEventNode**~~ | ✅ commit `302ca97` | `add_enhanced_input_action_event_node(bp, graph, ia_path, x, y)`：5 exec out + ActionValue（按 IA ValueType 强类型化）+ ElapsedSeconds/TriggeredSeconds + InputAction object pin。同 IA 第二次调用复用既有节点。 |
+| 2 | ~~**B6 AddGetInputActionValueNode**~~ | ✅ commit `9e347af` | `add_get_input_action_value_node(bp, graph, ia_path, x, y)`：纯 K2Node，输出 ReturnValue 按 IA ValueType 强类型化。 |
+| 3 | ~~**B7 WireEnhancedInputActionToFunction**~~ | ✅ commit `0e7047b` | `wire_enhanced_input_action_to_function(bp, graph, ia, trigger, target_class, fn, evX, evY, fnX, fnY)` → `FBridgeWireIAResult{event_node_guid, call_node_guid, wired, failure_reason}`。**B7 redefined**：原 BindAction wrapper 不可行（`UEnhancedInputComponent::BindAction` 不是 BlueprintCallable，BP 编译器 ExpandNode 自动展开 K2Node_EnhancedInputAction→BindAction），改成"事件节点 + CallFunction + 接 trigger exec→execute"组合。 |
+| 4 | ~~**A1 CreateInputAction / A2 CreateInputMappingContext**~~ | ✅ commit `96838ea` | `create_input_action(path, "Boolean"/"Axis1D"/"Axis2D"/"Axis3D", desc, save)` + `create_input_mapping_context(path, desc, save)`。直接 CreatePackage + NewObject + AssetRegistry::AssetCreated（EnhancedInput 不带 *Factory 类）。AssetRegistry 立即可见，B1 / B7 立即可吃新建的 IA。 |
+| 5 | ~~**A4 AddTriggerToIA / A6 AddModifierToIA**~~（+ A5 对称 Remove） | ✅ commit `4579578` | `add_trigger_to_ia(ia, "Hold"/long-name/full-path, json, save) → idx`，JSON 走 `FJsonObjectConverter::JsonObjectToUStruct` 写 UPROPERTY；同样的 `add_modifier_to_ia`；附 `remove_*_from_ia(ia, idx)` 支持负数下标。 |
+| 6 | ~~**C4 ScaffoldEnhancedInputPawn**~~ | ✅ commit `a68c8b3` | Python 辅助 `unreal_bridge_helpers.scaffold_enhanced_input_pawn(bp, ia_action_map, parent_class)`：建 BP（如缺）+ 建 target function graphs + 对每条 (ia → trigger, fn) 调 B7。一次 Python 调用出可编译 Pawn。IMC 应用先留给 caller（runtime AddMappingContext 或 PlayerController 的 DefaultPawnInputMappingContext 字段；BeginPlay graph 自动生成是 P1 follow-up）。 |
 
 P1（补完调试与维护链路）：
 
