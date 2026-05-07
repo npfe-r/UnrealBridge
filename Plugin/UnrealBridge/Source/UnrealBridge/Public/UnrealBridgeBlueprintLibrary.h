@@ -2879,6 +2879,21 @@ public:
 		const FString& GraphName, const FString& InputActionPath,
 		int32 NodePosX, int32 NodePosY);
 
+	/**
+	 * Spawn a UK2Node_GetInputActionValue (a pure "Get Input Action Value"
+	 * node — not the event node). Output value pin is typed by the IA's
+	 * ValueType: Boolean → bool, Axis1D → double, Axis2D → Vector2D,
+	 * Axis3D → Vector. Use this when you need the IA's current value
+	 * inside a non-event graph (functions, custom events, etc.) instead
+	 * of routing through the EnhancedInputAction event node.
+	 *
+	 * @return GUID of the new node, or "" on failure.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "UnrealBridge|Blueprint")
+	static FString AddGetInputActionValueNode(const FString& BlueprintPath,
+		const FString& GraphName, const FString& InputActionPath,
+		int32 NodePosX, int32 NodePosY);
+
 	// ─── Editor focus-state query (#17) ─────────────────────────────
 
 	/**

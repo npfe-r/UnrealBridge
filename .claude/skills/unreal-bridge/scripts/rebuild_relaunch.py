@@ -154,6 +154,11 @@ def run_build(project_dir: pathlib.Path, verbose: bool) -> int:
         stdout=None if verbose else subprocess.PIPE,
         stderr=None if verbose else subprocess.STDOUT,
         text=True,
+        # Build.bat output mixes ASCII (UBT) with whatever the active code
+        # page is (zh-CN systems → GBK). Force utf-8 + errors='replace' so
+        # smart quotes / Chinese path fragments don't crash the streamer.
+        encoding="utf-8",
+        errors="replace",
     )
     if not verbose and proc.stdout:
         for line in proc.stdout:

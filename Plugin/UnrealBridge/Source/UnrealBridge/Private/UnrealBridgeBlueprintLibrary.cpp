@@ -11452,3 +11452,33 @@ FString UUnrealBridgeBlueprintLibrary::AddEnhancedInputActionEventNode(
 	FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(BP);
 	return Node->NodeGuid.ToString(EGuidFormats::Digits);
 }
+
+FString UUnrealBridgeBlueprintLibrary::AddGetInputActionValueNode(
+	const FString& BlueprintPath, const FString& GraphName,
+	const FString& InputActionPath, int32 NodePosX, int32 NodePosY)
+{
+	UBlueprint* BP = LoadBP(BlueprintPath); if (!BP) return FString();
+	UEdGraph* Graph = BridgeBlueprintGraphWriteImpl::FindGraphByName(BP, GraphName);
+	if (!Graph) return FString();
+
+	UInputAction* IA = LoadObject<UInputAction>(nullptr, *InputActionPath);
+	if (!IA) return FString();
+
+	Graph->Modify();
+	BP->Modify();
+
+	UK2Node_GetInputActionValue* Node = NewObject<UK2Node_GetInputActionValue>(Graph);
+	// Same constraint as the event node: InputAction must be set BEFORE
+	// AllocateDefaultPins so the output value pin is typed correctly via
+	// GetValueCategory/SubCategory/SubCategoryObject(InputAction).
+	Node->InputAction = IA;
+	Node->CreateNewGuid();
+	Node->NodePosX = NodePosX;
+	Node->NodePosY = NodePosY;
+	Graph->AddNode(Node, /*bFromUI*/false, /*bSelectNewNode*/false);
+	Node->PostPlacedNewNode();
+	Node->AllocateDefaultPins();
+
+	FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(BP);
+	return Node->NodeGuid.ToString(EGuidFormats::Digits);
+}
