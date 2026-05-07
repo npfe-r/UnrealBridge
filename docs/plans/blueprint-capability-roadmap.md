@@ -56,7 +56,7 @@
 | 1 | **Timeline 轨道 CRUD** | 现只能改 length/autoplay/loop；无法增删 Float/Vector/Event/Color 轨道与关键帧。所有动画/渐变/延时过渡类 BP 做不出来。 |
 | 2 | **AnimGraph + 状态机写** | `UnrealBridgeAnimLibrary` 只读。无法建状态、改转换、改 BlendSpace 采样、改 LinkedLayer。角色 BP 整类做不出来。 |
 | 3 | **GameplayAbility 图编辑** | 只读 CDO 元数据。无法编辑 GA 激活图/GameplayEffect/GameplayCue。所有 GAS 项目卡死。 |
-| 4 | **Enhanced Input 绑定** | 无 IA/IMC 辅助。现代 UE 输入层只能走 raw `unreal.*`。 |
+| 4 | **Enhanced Input 绑定**（部分交付） | 2026-05-06 落地 IA/IMC 资产枚举 + IMC 映射 read/edit（`79fb462`）；剩余项（IA/IMC 创建、Trigger/Modifier 实例编辑、`K2Node_EnhancedInputAction` 节点工厂、Pawn 装配脚手架、BindAction 调用点检索、运行时 PIE 状态查询）独立成 `docs/plans/enhanced-input-roadmap.md`。 |
 | 5 | ~~**invoke_blueprint_function(bp, func, args) → result**~~ | ✅ 2026-04-19 落地。transient 实例 ProcessEvent；支持 Actor（SpawnActor）+ 普通 UObject；拒绝 latent / 非 BlueprintCallable；JSON 入参 + 出参。 |
 | 6 | ~~**运行时 BP 变量/参数快照**~~ | ✅ 2026-04-19 落地 `get_last_breakpoint_hit` + `get_pie_node_coverage` + `set_blueprint_debug_object` + `resume_script_execution`。OnScriptException hook 捕获 FFrame.Locals（param/local/return），trace-ring 聚合 per-node 命中数。 |
 
@@ -97,7 +97,7 @@
 | 排名 | # | 项目 | 工程量 | 频次 | 理由 |
 |---|---|---|---|---|---|
 | 1 | #6  | 运行时 BP 变量/参数快照 | 中 | 高 | 断点 + 快照才是完整调试环 |
-| 2 | #4  | Enhanced Input 绑定 | 中 | 高 | 现代 UE 输入必经 |
+| 2 | #4  | Enhanced Input 绑定 | 中 | 高 | 详见 `enhanced-input-roadmap.md`，剩余 16 项 |
 | 3 | #1  | Timeline 轨道 CRUD | 中-大 | 高 | 渐变/延时/过渡一大类 BP |
 | 4 | #8  | find_usage_examples | 小-中 | 中 | 跨 BP 真实例子 → AI 照样学 |
 | 5 | #2  | AnimGraph 状态机写 | 大 | 高 | 角色 BP 品类 |
