@@ -99,7 +99,7 @@ print(f"{len(pts)} hits inside landscape coverage")
 
 ---
 
-## sample_points_poisson_disk_2d(bounds, min_radius, max_attempts, seed) -> list[Vector]
+## sample_points_poisson_disk2d(bounds, min_radius, max_attempts, seed) -> list[Vector]
 
 Bridson 2D Poisson-disk sampling — every output point ≥ `min_radius` from every other in XY plane. For natural-looking forest / scatter where regular grid spacing is visible.
 
@@ -119,7 +119,7 @@ Memory: `O((bounds_area / R²))` cells, each `int32`. Refused if grid would exce
 **Example**
 ```python
 bounds = u.Box.build_aabb(u.Vector(0,0,0), u.Vector(10000, 10000, 0))
-pts = P.sample_points_poisson_disk_2d(bounds, min_radius=300.0, max_attempts=30, seed=42)
+pts = P.sample_points_poisson_disk2d(bounds, min_radius=300.0, max_attempts=30, seed=42)
 print(f"{len(pts)} naturally-spaced points, all ≥ 3m apart")
 ```
 
@@ -208,7 +208,7 @@ In Python, the `out_*` parameter pattern returns a tuple: `(projected_pts, norma
 
 **Example**
 ```python
-poisson_pts = P.sample_points_poisson_disk_2d(bounds, 300.0, 30, 42)
+poisson_pts = P.sample_points_poisson_disk2d(bounds, 300.0, 30, 42)
 projected, normals = P.project_points_to_surface(poisson_pts, 5000.0, 5000.0)
 # Now `projected` has correct ground Z, `normals` has surface orientation per point.
 # Build transforms with normal-aligned rotation:
@@ -225,15 +225,15 @@ for pt, n in zip(projected, normals):
 
 ---
 
-## ensure_procedural_ism_actor(tag, mesh_path, b_use_hism) -> str
+## ensure_procedural_ism_actor(tag, mesh_path, use_hism) -> str
 
-Find or create a stub `AActor` carrying a single `UInstancedStaticMeshComponent` (or `UHierarchicalInstancedStaticMeshComponent` if `b_use_hism`) configured to render `mesh_path`. Idempotent — calling twice with the same `tag` returns the same actor.
+Find or create a stub `AActor` carrying a single `UInstancedStaticMeshComponent` (or `UHierarchicalInstancedStaticMeshComponent` if `use_hism`) configured to render `mesh_path`. Idempotent — calling twice with the same `tag` returns the same actor.
 
 | Param | Type | Notes |
 |---|---|---|
 | `tag` | str | Unique grouping key. The created actor carries this as `FName` in its `Tags` list. |
 | `mesh_path` | str | `/Game/...` content path of the StaticMesh asset. |
-| `b_use_hism` | bool | `True` for HISM (with culling/LOD; preferred for foliage-density scatter). `False` for plain ISM (no hierarchy). |
+| `use_hism` | bool | `True` for HISM (with culling/LOD; preferred for foliage-density scatter). `False` for plain ISM (no hierarchy). |
 
 Returns: actor label (e.g. `"Procedural_Trees_PineForest"`), or empty string on failure.
 
@@ -242,7 +242,7 @@ Returns: actor label (e.g. `"Procedural_Trees_PineForest"`), or empty string on 
 **Example**
 ```python
 actor = P.ensure_procedural_ism_actor("Trees_PineForest",
-    "/Game/Trees/SM_Pine", b_use_hism=True)
+    "/Game/Trees/SM_Pine", use_hism=True)
 # Subsequent call returns the same actor — idempotent.
 same = P.ensure_procedural_ism_actor("Trees_PineForest", "/Game/Trees/SM_Pine", True)
 assert actor == same
@@ -255,7 +255,7 @@ assert actor == same
 
 ---
 
-## add_instances_by_transforms(actor_name, xs, b_world_space) -> list[int32]
+## add_instances_by_transforms(actor_name, xs, world_space) -> list[int32]
 
 Bulk-add instances to a procedural ISM actor's `[H]ISMC` in one call. Returns the instance index of each transform in the order added — required for later `update`/`remove` ops.
 
@@ -263,7 +263,7 @@ Bulk-add instances to a procedural ISM actor's `[H]ISMC` in one call. Returns th
 |---|---|---|
 | `actor_name` | str | Label returned by `ensure_procedural_ism_actor`. |
 | `xs` | `list[Transform]` | Instance transforms. |
-| `b_world_space` | bool | `True` = `xs` are world-space; component handles the inverse-transform internally. `False` = local. Pick whichever your sampling pipeline produced. |
+| `world_space` | bool | `True` = `xs` are world-space; component handles the inverse-transform internally. `False` = local. Pick whichever your sampling pipeline produced. |
 
 Returns: instance ID list, parallel to `xs`. Empty on actor-not-found / no-ISM / empty input.
 
@@ -272,7 +272,7 @@ Returns: instance ID list, parallel to `xs`. Empty on actor-not-found / no-ISM /
 **Example**
 ```python
 xs = [u.Transform(p, u.Rotator(0,0,0), u.Vector(1,1,1)) for p in pts]
-ids = P.add_instances_by_transforms("Procedural_Trees_PineForest", xs, b_world_space=True)
+ids = P.add_instances_by_transforms("Procedural_Trees_PineForest", xs, world_space=True)
 print(f"added {len(ids)} instances, first id={ids[0]}")
 ```
 
@@ -351,7 +351,7 @@ P = u.UnrealBridgeProceduralLibrary
 bounds = u.Box.build_aabb(u.Vector(0, 0, 0), u.Vector(20000, 20000, 0))
 
 # 1) Sample with natural spacing (Poisson) — guarantees ≥ 5m between trees
-poisson = P.sample_points_poisson_disk_2d(bounds, min_radius=500.0, max_attempts=30, seed=42)
+poisson = P.sample_points_poisson_disk2d(bounds, min_radius=500.0, max_attempts=30, seed=42)
 
 # 2) Drape onto landscape surface
 projected, normals = P.project_points_to_surface(poisson, 5000.0, 5000.0)
@@ -364,8 +364,8 @@ print(f"Poisson {len(poisson)} → projected {len(projected)} → ≤30° {len(w
 xs = [u.Transform(p, u.Rotator(0,0,0), u.Vector(1,1,1)) for p in walkable]
 
 # 5) Spawn HISM stub + add all instances in one batch (nav update deferred)
-actor = P.ensure_procedural_ism_actor("Forest_Pines", "/Game/Trees/SM_Pine", b_use_hism=True)
-ids = P.add_instances_by_transforms(actor, xs, b_world_space=True)
+actor = P.ensure_procedural_ism_actor("Forest_Pines", "/Game/Trees/SM_Pine", use_hism=True)
+ids = P.add_instances_by_transforms(actor, xs, world_space=True)
 
 # 6) Single end-of-batch nav rebuild (cheap vs N per-call updates)
 P.rebuild_procedural_navigation(actor)
