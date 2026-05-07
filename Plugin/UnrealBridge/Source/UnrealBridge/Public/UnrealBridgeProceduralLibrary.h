@@ -114,6 +114,77 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "UnrealBridge|Procedural")
 	static TArray<FVector> SamplePointsPoissonDisk2D(FBox Bounds, float MinRadius, int32 MaxAttempts, int32 Seed);
 
+	/**
+	 * 3D Bridson Poisson-disk: every output point is at least `MinRadius` from
+	 * every other in 3D. For volumetric scatter (asteroid fields, particle clouds,
+	 * floating debris). Same algorithm as M1-2 but with `cell = R/√3`, 5×5×5
+	 * neighborhood scan, and spherical annulus candidate generation.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "UnrealBridge|Procedural")
+	static TArray<FVector> SamplePointsPoissonDisk3D(FBox Bounds, float MinRadius, int32 MaxAttempts, int32 Seed);
+
+	/**
+	 * Sample evenly-spaced positions along a USplineComponent. `Mode` is either
+	 * "by_count" (CountOrSpacing = N points evenly distributed end-to-end) or
+	 * "by_distance" (CountOrSpacing = cm between consecutive points, including
+	 * both endpoints). Output is in **world space**.
+	 *
+	 * @param SplineActorLabel  Actor owning the spline component.
+	 * @param ComponentName     Name of the USplineComponent on that actor. Empty
+	 *                          string = first SplineComponent found.
+	 * @param Mode              "by_count" or "by_distance".
+	 * @param CountOrSpacing    int(N) for by_count; cm spacing for by_distance.
+	 *                          Bad values return empty.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "UnrealBridge|Procedural")
+	static TArray<FVector> SamplePointsOnSpline(const FString& SplineActorLabel, const FString& ComponentName, const FString& Mode, float CountOrSpacing);
+
+	/**
+	 * Reject-sampled points inside a volume actor (typically `AVolume` subclass:
+	 * TriggerVolume, BlockingVolume, BoxVolume etc). Falls back to actor bounds
+	 * containment for non-volume actors (loose).
+	 *
+	 * @param VolumeActorLabel  Actor to sample inside. Must be loaded.
+	 * @param Count             Target output count (≤ 100k cap).
+	 * @param Seed              FRandomStream seed.
+	 * @param MaxAttempts       Maximum reject-sample attempts before giving up
+	 *                          (caps total work at Count × MaxAttempts).
+	 *                          Default 30 if ≤ 0.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "UnrealBridge|Procedural")
+	static TArray<FVector> SamplePointsInVolume(const FString& VolumeActorLabel, int32 Count, int32 Seed, int32 MaxAttempts);
+
+	/**
+	 * Per-cell jittered grid — the cheap O(N) alternative to Poisson when fully
+	 * natural distribution isn't required. Splits XY bounds into
+	 * `GridResolution × GridResolution` cells and picks one random point in each.
+	 *
+	 * @param Bounds           XY bounds; output Z = (Min.Z + Max.Z)/2.
+	 * @param GridResolution   Cells per axis. Total points = GridResolution².
+	 * @param Seed             FRandomStream seed.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "UnrealBridge|Procedural")
+	static TArray<FVector> SamplePointsJitterStratified(FBox Bounds, int32 GridResolution, int32 Seed);
+
+	/**
+	 * Same as SamplePointsOnSpline but yields full FTransform: location +
+	 * rotation aligned to spline tangent. The standard "lampposts / fence
+	 * posts / road markers" placement primitive.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "UnrealBridge|Procedural")
+	static TArray<FTransform> SampleTransformsAlongSpline(const FString& SplineActorLabel, const FString& ComponentName, const FString& Mode, float CountOrSpacing);
+
+	/**
+	 * Post-process jitter on an existing transform list. Adds Gaussian noise to
+	 * position (PosSigma cm, Box-Muller standard normal scaled), Gaussian noise
+	 * to euler rotation (RotSigma degrees, applied per axis), and uniform random
+	 * scale per-axis between `ScaleMin` and `ScaleMax` (component-wise).
+	 *
+	 * Deterministic given (Xs, params, Seed).
+	 */
+	UFUNCTION(BlueprintCallable, Category = "UnrealBridge|Procedural")
+	static TArray<FTransform> JitterTransforms(const TArray<FTransform>& Xs, float PosSigma, float RotSigma, FVector ScaleMin, FVector ScaleMax, int32 Seed);
+
 	// ─── M2 — Filter ─────────────────────────────────────────
 
 	/**
@@ -180,6 +251,74 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "UnrealBridge|Procedural")
 	static TArray<FVector> ProjectPointsToSurface(const TArray<FVector>& In, float BounceUp, float BounceDown, TArray<FVector>& OutHitNormals);
 
+	/**
+	 * Drop points whose sphere-overlap (radius `Radius` cm) hits any actor of any
+	 * class in `BlockingClassPaths`. The "avoid roads / buildings / water" filter.
+	 *
+	 * @param Pts                 Input points.
+	 * @param BlockingClassPaths  Class paths (e.g. "/Game/BP/BP_Building.BP_Building_C")
+	 *                            or short class names. Resolved at start; bad
+	 *                            entries are silently skipped.
+	 * @param Radius              Sphere overlap test radius in cm. > 0 required.
+	 * @return Filtered list — points NOT overlapping any blocking actor.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "UnrealBridge|Procedural")
+	static TArray<FVector> FilterPointsByOverlap(const TArray<FVector>& Pts, const TArray<FString>& BlockingClassPaths, float Radius);
+
+	/**
+	 * Texture-driven density modulation. Maps each point's XY into the texture
+	 * via `BoundsXY` → UV, samples the requested channel of mip 0, and keeps the
+	 * point with stochastic probability based on the texel value.
+	 *
+	 * Selection rule:
+	 *   1. Sample channel value c ∈ [0, 1].
+	 *   2. If c < Threshold → drop (hard cutoff; default 0 means no cutoff).
+	 *   3. Else keep with probability c (stochastic — high mask values pass more).
+	 *
+	 * The texture **must be CompressionSettings = TC_VectorDisplacementmap** so
+	 * its raw RGBA8 bulk data is readable on the CPU; other compression formats
+	 * (DXT/BC) return empty + log warning. Plan §6 #11.
+	 *
+	 * @param Pts            Input points.
+	 * @param TextureAsset   `/Game/...` content path of UTexture2D.
+	 * @param BoundsXY       World-space XY range that maps to the texture's [0,1]
+	 *                       UV space. Z ignored.
+	 * @param ChannelIndex   0=R, 1=G, 2=B, 3=A. Out-of-range falls back to R.
+	 * @param Threshold      Hard cutoff [0, 1]. 0 = pure stochastic; 0.5 = require
+	 *                       mask ≥ 0.5 before any pass.
+	 * @param Seed           FRandomStream seed for the stochastic step.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "UnrealBridge|Procedural")
+	static TArray<FVector> FilterPointsByDensityMask(const TArray<FVector>& Pts, const FString& TextureAsset, FBox BoundsXY, int32 ChannelIndex, float Threshold, int32 Seed);
+
+	/**
+	 * Keep or drop points based on whether they're inside `ContainerActorLabel`'s
+	 * collision shape. For `AVolume` and subclasses uses `EncompassesPoint`
+	 * (accurate); for any other actor falls back to actor bounds containment
+	 * (loose AABB test).
+	 *
+	 * @param Pts                  Input points.
+	 * @param ContainerActorLabel  Actor to test against.
+	 * @param bInside              `true` = keep points inside the container;
+	 *                             `false` = keep points outside.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "UnrealBridge|Procedural")
+	static TArray<FVector> FilterPointsInsideActor(const TArray<FVector>& Pts, const FString& ContainerActorLabel, bool bInside);
+
+	/**
+	 * Drop points where the named landscape weightmap layer has weight below
+	 * `Threshold`. Iterates landscape components and uses
+	 * `EditorGetPaintLayerWeightByNameAtLocation` (editor-only) per point.
+	 *
+	 * @param Pts             Input points.
+	 * @param LandscapeLabel  ALandscape / ALandscapeProxy actor label.
+	 * @param LayerName       Paint layer name (FName), e.g. "Grass", "Forest".
+	 * @param Threshold       Minimum weight [0, 1] to keep (1 = mask must be
+	 *                        fully painted; 0 = always pass).
+	 */
+	UFUNCTION(BlueprintCallable, Category = "UnrealBridge|Procedural")
+	static TArray<FVector> FilterPointsByLandscapeLayer(const TArray<FVector>& Pts, const FString& LandscapeLabel, FName LayerName, float Threshold);
+
 	// ─── M3 — Instancing ─────────────────────────────────────
 
 	/**
@@ -230,6 +369,28 @@ public:
 	 */
 	UFUNCTION(BlueprintCallable, Category = "UnrealBridge|Procedural")
 	static bool ClearInstances(const FString& ActorName);
+
+	/**
+	 * Bulk-remove instances by ID. Sorts the IDs in reverse and dedupes before
+	 * calling `RemoveInstances(SortedReverse, true)` — passing `true` for the
+	 * `bAlreadySortedReverse` flag, the canonical UE pattern that avoids
+	 * per-removal swap-back errors. Negative IDs are silently dropped.
+	 *
+	 * @return true iff actor + ISM resolved (even if all IDs were stale).
+	 */
+	UFUNCTION(BlueprintCallable, Category = "UnrealBridge|Procedural")
+	static bool RemoveInstancesByIds(const FString& ActorName, const TArray<int32>& InstanceIds);
+
+	/**
+	 * Bulk-update instance transforms by ID. Iterates `Ids` × `NewXs` (must be
+	 * same length), calls `UpdateInstanceTransform` per instance with
+	 * `bMarkRenderStateDirty=false`, then a single `MarkRenderStateDirty()` at
+	 * the end — much cheaper than N per-call dirties.
+	 *
+	 * @return true iff lengths match + actor + ISM resolved.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "UnrealBridge|Procedural")
+	static bool UpdateInstanceTransformsByIds(const FString& ActorName, const TArray<int32>& Ids, const TArray<FTransform>& NewXs, bool bWorldSpace);
 
 	/**
 	 * Single end-of-batch nav rebuild for a procedural ISM actor. Pairs with
