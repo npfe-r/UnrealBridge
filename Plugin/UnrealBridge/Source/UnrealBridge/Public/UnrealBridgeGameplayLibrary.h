@@ -127,6 +127,164 @@ struct FBridgeIMCMapping
 	TArray<FString> ModifierClasses;
 };
 
+/** A single Trigger/Modifier instance, fully serialized to JSON for round-trip with A4/A6/A7/A8 writers. */
+USTRUCT(BlueprintType)
+struct FBridgeInputComponentInstance
+{
+	GENERATED_BODY()
+
+	/** Short class name (e.g. "InputTriggerHold", "InputModifierScalar"). */
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Agent")
+	FString ClassName;
+
+	/** Full class path (e.g. "/Script/EnhancedInput.InputTriggerHold"). */
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Agent")
+	FString ClassPath;
+
+	/** All UPROPERTY values on the instance, JSON-serialized via FJsonObjectConverter. */
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Agent")
+	FString ParamsJson;
+};
+
+/** One reference to an IA (or IMC) found by D1 / D2. */
+USTRUCT(BlueprintType)
+struct FBridgeInputReference
+{
+	GENERATED_BODY()
+
+	/** "imc_mapping" / "event_node" / "bind_action_call" / "function_param" / "subsystem_call_arg" / "default_pawn_imc_field" */
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Agent")
+	FString Kind;
+
+	/** Path of the asset that holds the reference (BP, IMC, or a config-bearing class). */
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Agent")
+	FString AssetPath;
+
+	/** Graph name within a BP (empty for non-BP references). */
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Agent")
+	FString GraphName;
+
+	/** Node GUID within a BP graph (empty for non-graph references). */
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Agent")
+	FString NodeGuid;
+
+	/** Free-form detail (e.g. "Triggered → HandleMove", "Key=SpaceBar", "ParamName=Action"). */
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Agent")
+	FString Detail;
+};
+
+/** One entry on the LocalPlayer Subsystem's IMC stack (E1). */
+USTRUCT(BlueprintType)
+struct FBridgeMappingContextEntry
+{
+	GENERATED_BODY()
+
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Agent")
+	FString MappingContextPath;
+
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Agent")
+	int32 Priority = 0;
+};
+
+/** Live runtime state of one IA in PIE (E2). */
+USTRUCT(BlueprintType)
+struct FBridgeInputActionState
+{
+	GENERATED_BODY()
+
+	/** ETriggerEvent name: "None"/"Triggered"/"Started"/"Ongoing"/"Canceled"/"Completed". */
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Agent")
+	FString TriggerEvent;
+
+	/** Current FInputActionValue, projected to FVector (Y/Z = 0 for lower-rank types). */
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Agent")
+	FVector Value = FVector::ZeroVector;
+
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Agent")
+	float ElapsedTriggeredTime = 0.f;
+
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Agent")
+	float ElapsedProcessedTime = 0.f;
+
+	/** False iff there is no PIE / no active player input / no record for the IA. */
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Agent")
+	bool bHasState = false;
+};
+
+/** A row from DefaultInput.ini's AxisMappings (F1). */
+USTRUCT(BlueprintType)
+struct FBridgeLegacyAxisMapping
+{
+	GENERATED_BODY()
+
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Agent")
+	FString MappingName;
+
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Agent")
+	FString KeyName;
+
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Agent")
+	float Scale = 1.f;
+};
+
+/** A row from DefaultInput.ini's ActionMappings (F1). */
+USTRUCT(BlueprintType)
+struct FBridgeLegacyActionMapping
+{
+	GENERATED_BODY()
+
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Agent")
+	FString MappingName;
+
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Agent")
+	FString KeyName;
+
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Agent")
+	bool bShift = false;
+
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Agent")
+	bool bCtrl = false;
+
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Agent")
+	bool bAlt = false;
+
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Agent")
+	bool bCmd = false;
+};
+
+/** A single conflict found by D4 detect_key_conflicts. */
+USTRUCT(BlueprintType)
+struct FBridgeKeyConflict
+{
+	GENERATED_BODY()
+
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Agent")
+	FString MappingContextPath;
+
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Agent")
+	FString KeyName;
+
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Agent")
+	TArray<FString> ActionPaths;
+};
+
+/** A single issue found by D3 validate_input_bindings. */
+USTRUCT(BlueprintType)
+struct FBridgeInputBindingIssue
+{
+	GENERATED_BODY()
+
+	/** "imc_null_action" / "imc_dangling_action" / "event_node_null_ia" / "bind_action_null_ia". */
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Agent")
+	FString Kind;
+
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Agent")
+	FString AssetPath;
+
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Agent")
+	FString Detail;
+};
+
 /**
  * Agent sensors + navigation for PIE automation.
  *
@@ -938,6 +1096,143 @@ public:
 	/** Symmetric remover for IA->Modifiers. */
 	UFUNCTION(BlueprintCallable, Category = "UnrealBridge|Agent")
 	static bool RemoveModifierFromIA(const FString& InputActionPath, int32 Index, bool bSave = true);
+
+	// ─── A3 / A9 / A10 — IA/IMC asset metadata + duplicates ─────────
+
+	/**
+	 * Set a UPROPERTY on a UInputAction asset by name. Common targets:
+	 * "ValueType" ("Boolean"/"Axis1D"/"Axis2D"/"Axis3D" — string mapped to enum;
+	 * other props use raw JSON value). Examples:
+	 *   set_input_action_property(ia, "bConsumeInput", "true")
+	 *   set_input_action_property(ia, "bTriggerWhenPaused", "false")
+	 *   set_input_action_property(ia, "ActionDescription", "\"My description\"")
+	 */
+	UFUNCTION(BlueprintCallable, Category = "UnrealBridge|Agent")
+	static bool SetInputActionProperty(const FString& InputActionPath,
+		const FString& PropertyName, const FString& JsonValue, bool bSave = true);
+
+	/**
+	 * Set the PlayerMappableKeySettings asset reference on an IMC mapping
+	 * (per-mapping data; UE 5.4+ uses a UPlayerMappableKeySettings asset
+	 * pointer; on 5.3 the path is `FPlayerMappableKeyOptions` struct fields).
+	 * Empty PMKS path = clear the reference.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "UnrealBridge|Agent")
+	static bool SetIMCMappingPlayerMappableKeySettings(const FString& MappingContextPath,
+		const FString& InputActionPath, const FString& KeyName,
+		const FString& PlayerMappableKeySettingsPath, bool bSave = true);
+
+	/** Duplicate an existing IA to a new content path. Returns new asset path or empty on failure. */
+	UFUNCTION(BlueprintCallable, Category = "UnrealBridge|Agent")
+	static FString DuplicateInputAction(const FString& SourcePath, const FString& DestPath, bool bSave = true);
+
+	/** Duplicate an existing IMC. */
+	UFUNCTION(BlueprintCallable, Category = "UnrealBridge|Agent")
+	static FString DuplicateInputMappingContext(const FString& SourcePath, const FString& DestPath, bool bSave = true);
+
+	// ─── A7 / A8 — IMC per-mapping triggers + modifiers ─────────────
+
+	/** Append a UInputTrigger instance to a specific IA→Key mapping in an IMC. */
+	UFUNCTION(BlueprintCallable, Category = "UnrealBridge|Agent")
+	static int32 AddTriggerToIMCMapping(const FString& MappingContextPath,
+		const FString& InputActionPath, const FString& KeyName,
+		const FString& TriggerClass, const FString& ParamsJson = TEXT("{}"),
+		bool bSave = true);
+
+	/** Append a UInputModifier instance to a specific IA→Key mapping in an IMC. */
+	UFUNCTION(BlueprintCallable, Category = "UnrealBridge|Agent")
+	static int32 AddModifierToIMCMapping(const FString& MappingContextPath,
+		const FString& InputActionPath, const FString& KeyName,
+		const FString& ModifierClass, const FString& ParamsJson = TEXT("{}"),
+		bool bSave = true);
+
+	UFUNCTION(BlueprintCallable, Category = "UnrealBridge|Agent")
+	static bool RemoveTriggerFromIMCMapping(const FString& MappingContextPath,
+		const FString& InputActionPath, const FString& KeyName, int32 Index, bool bSave = true);
+
+	UFUNCTION(BlueprintCallable, Category = "UnrealBridge|Agent")
+	static bool RemoveModifierFromIMCMapping(const FString& MappingContextPath,
+		const FString& InputActionPath, const FString& KeyName, int32 Index, bool bSave = true);
+
+	// ─── Read API — full trigger/modifier dump (companion to A4/A6) ──
+
+	/** Like get_input_action_triggers but returns each trigger's full UPROPERTY
+	 *  set as JSON (round-trip-able with AddTriggerToIA / Import G1). */
+	UFUNCTION(BlueprintCallable, Category = "UnrealBridge|Agent")
+	static TArray<FBridgeInputComponentInstance> GetInputActionTriggersFull(const FString& InputActionPath);
+
+	/** Same for IA->Modifiers. */
+	UFUNCTION(BlueprintCallable, Category = "UnrealBridge|Agent")
+	static TArray<FBridgeInputComponentInstance> GetInputActionModifiersFull(const FString& InputActionPath);
+
+	/** Filtered list_input_actions: empty ValueTypeFilter = all; otherwise
+	 *  "Boolean"/"Axis1D"/"Axis2D"/"Axis3D" (case-insensitive). */
+	UFUNCTION(BlueprintCallable, Category = "UnrealBridge|Agent")
+	static TArray<FString> ListInputActionsByValueType(const FString& ContentPathFilter,
+		const FString& ValueTypeFilter, int32 MaxResults = 0);
+
+	// ─── D1 / D2 — find references ──────────────────────────────────
+
+	/** Find every reference to an IA across the project (IMC mappings + BP nodes). */
+	UFUNCTION(BlueprintCallable, Category = "UnrealBridge|Agent")
+	static TArray<FBridgeInputReference> FindInputActionReferences(const FString& InputActionPath,
+		const FString& BlueprintPackagePathFilter = TEXT(""));
+
+	/** Find every reference to an IMC (BP CallFunction args + Pawn DefaultPawnInputMappingContext field). */
+	UFUNCTION(BlueprintCallable, Category = "UnrealBridge|Agent")
+	static TArray<FBridgeInputReference> FindInputMappingContextReferences(const FString& MappingContextPath,
+		const FString& BlueprintPackagePathFilter = TEXT(""));
+
+	// ─── E1 / E2 / E4 — PIE runtime state ───────────────────────────
+
+	/** Snapshot the LocalPlayer Subsystem's currently-active IMC stack. */
+	UFUNCTION(BlueprintCallable, Category = "UnrealBridge|Agent")
+	static TArray<FBridgeMappingContextEntry> GetActiveMappingContextStack();
+
+	/** Read live runtime state for an IA (E2). */
+	UFUNCTION(BlueprintCallable, Category = "UnrealBridge|Agent")
+	static FBridgeInputActionState GetCurrentInputActionState(const FString& InputActionPath);
+
+	/** Dump the bridge's currently pending one-shot inject queue (E4 part 2 — sticky already exposed via GetStickyInputs). */
+	UFUNCTION(BlueprintCallable, Category = "UnrealBridge|Agent")
+	static int32 DumpInjectedInputQueue(TArray<FString>& OutPaths, TArray<FVector>& OutValues, TArray<float>& OutHoldRemainingSeconds);
+
+	// ─── E5 — raw key event simulation ──────────────────────────────
+
+	/** Inject a Slate key event (covers menus / Slate / legacy InputComponent paths). */
+	UFUNCTION(BlueprintCallable, Category = "UnrealBridge|Agent")
+	static bool SimulateKeyEvent(const FString& KeyName, bool bPressed, int32 UserIndex = 0);
+
+	// ─── F1 / F2 / F3 — legacy InputAxis/Action mappings (.ini) ─────
+
+	UFUNCTION(BlueprintCallable, Category = "UnrealBridge|Agent")
+	static TArray<FBridgeLegacyAxisMapping> ListLegacyAxisMappings();
+
+	UFUNCTION(BlueprintCallable, Category = "UnrealBridge|Agent")
+	static TArray<FBridgeLegacyActionMapping> ListLegacyActionMappings();
+
+	UFUNCTION(BlueprintCallable, Category = "UnrealBridge|Agent")
+	static bool AddLegacyAxisMapping(const FString& MappingName, const FString& KeyName, float Scale = 1.f);
+
+	UFUNCTION(BlueprintCallable, Category = "UnrealBridge|Agent")
+	static bool AddLegacyActionMapping(const FString& MappingName, const FString& KeyName,
+		bool bShift = false, bool bCtrl = false, bool bAlt = false, bool bCmd = false);
+
+	UFUNCTION(BlueprintCallable, Category = "UnrealBridge|Agent")
+	static bool RemoveLegacyAxisMapping(const FString& MappingName, const FString& KeyName);
+
+	UFUNCTION(BlueprintCallable, Category = "UnrealBridge|Agent")
+	static bool RemoveLegacyActionMapping(const FString& MappingName, const FString& KeyName);
+
+	// ─── D3 / D4 — validation ───────────────────────────────────────
+
+	/** Run lint over the project's input bindings. Empty `BlueprintPackagePathFilter` scans all `/Game/...` BPs. */
+	UFUNCTION(BlueprintCallable, Category = "UnrealBridge|Agent")
+	static TArray<FBridgeInputBindingIssue> ValidateInputBindings(const FString& BlueprintPackagePathFilter = TEXT(""));
+
+	/** Find keys bound to multiple IAs within a single IMC, or across the supplied set of IMCs. */
+	UFUNCTION(BlueprintCallable, Category = "UnrealBridge|Agent")
+	static TArray<FBridgeKeyConflict> DetectKeyConflicts(const TArray<FString>& MappingContextPaths);
 
 	/**
 	 * Enumerate the IA→Key mappings (with per-mapping Trigger / Modifier

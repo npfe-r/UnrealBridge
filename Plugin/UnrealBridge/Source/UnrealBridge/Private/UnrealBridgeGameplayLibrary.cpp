@@ -41,6 +41,18 @@
 #include "InputTriggers.h"
 #include "EnhancedInputSubsystems.h"
 #include "EnhancedInputComponent.h"
+#include "EnhancedPlayerInput.h"
+#include "GameFramework/InputSettings.h"
+#include "Misc/ConfigCacheIni.h"
+#include "PlayerMappableKeySettings.h"
+#include "AssetRegistry/ARFilter.h"
+#include "AssetRegistry/AssetData.h"
+#include "Engine/Blueprint.h"
+#include "EdGraph/EdGraph.h"
+#include "EdGraph/EdGraphNode.h"
+#include "K2Node_CallFunction.h"
+#include "K2Node_EnhancedInputAction.h"
+#include "K2Node_GetInputActionValue.h"
 #include "Containers/Ticker.h"
 #include "UnrealBridgeReactiveSubsystem.h"
 
@@ -2584,4 +2596,802 @@ bool UUnrealBridgeGameplayLibrary::RemoveModifierFromIA(
 		UEditorLoadingAndSavingUtils::SavePackages({ IA->GetOutermost() }, /*bOnlyDirty*/ false);
 	}
 	return true;
+}
+
+// ─── Read APIs (full trigger/modifier dump + value-type filter) ──────
+
+namespace BridgeInputAuthoringImpl
+{
+	static FString SerializeUObjectToJson(UObject* Obj)
+	{
+		if (!Obj) return FString();
+		TSharedRef<FJsonObject> Out = MakeShared<FJsonObject>();
+		FJsonObjectConverter::UStructToJsonObject(Obj->GetClass(), Obj, Out, /*CheckFlags*/ 0, /*SkipFlags*/ 0);
+		FString S;
+		const TSharedRef<TJsonWriter<TCHAR, TCondensedJsonPrintPolicy<TCHAR>>> W =
+			TJsonWriterFactory<TCHAR, TCondensedJsonPrintPolicy<TCHAR>>::Create(&S);
+		FJsonSerializer::Serialize(Out, W);
+		return S;
+	}
+
+	static FString ValueTypeToString(EInputActionValueType T)
+	{
+		switch (T)
+		{
+		case EInputActionValueType::Boolean: return TEXT("Boolean");
+		case EInputActionValueType::Axis1D:  return TEXT("Axis1D");
+		case EInputActionValueType::Axis2D:  return TEXT("Axis2D");
+		case EInputActionValueType::Axis3D:  return TEXT("Axis3D");
+		}
+		return TEXT("Unknown");
+	}
+
+	static int32 FindMappingIndex(UInputMappingContext* IMC, const UInputAction* IA, FKey Key)
+	{
+		const TArray<FEnhancedActionKeyMapping>& Mappings = IMC->GetMappings();
+		for (int32 i = 0; i < Mappings.Num(); ++i)
+		{
+			if (Mappings[i].Action == IA && Mappings[i].Key == Key) return i;
+		}
+		return INDEX_NONE;
+	}
+
+	static FEnhancedActionKeyMapping* GetMutableMapping(UInputMappingContext* IMC, int32 Idx)
+	{
+		return const_cast<FEnhancedActionKeyMapping*>(&IMC->GetMappings()[Idx]);
+	}
+}
+
+TArray<FBridgeInputComponentInstance> UUnrealBridgeGameplayLibrary::GetInputActionTriggersFull(
+	const FString& InputActionPath)
+{
+	TArray<FBridgeInputComponentInstance> Out;
+	UInputAction* IA = LoadObject<UInputAction>(nullptr, *InputActionPath);
+	if (!IA) return Out;
+	for (UInputTrigger* T : IA->Triggers)
+	{
+		if (!T) continue;
+		FBridgeInputComponentInstance E;
+		E.ClassName = T->GetClass()->GetName();
+		E.ClassPath = T->GetClass()->GetPathName();
+		E.ParamsJson = BridgeInputAuthoringImpl::SerializeUObjectToJson(T);
+		Out.Add(MoveTemp(E));
+	}
+	return Out;
+}
+
+TArray<FBridgeInputComponentInstance> UUnrealBridgeGameplayLibrary::GetInputActionModifiersFull(
+	const FString& InputActionPath)
+{
+	TArray<FBridgeInputComponentInstance> Out;
+	UInputAction* IA = LoadObject<UInputAction>(nullptr, *InputActionPath);
+	if (!IA) return Out;
+	for (UInputModifier* M : IA->Modifiers)
+	{
+		if (!M) continue;
+		FBridgeInputComponentInstance E;
+		E.ClassName = M->GetClass()->GetName();
+		E.ClassPath = M->GetClass()->GetPathName();
+		E.ParamsJson = BridgeInputAuthoringImpl::SerializeUObjectToJson(M);
+		Out.Add(MoveTemp(E));
+	}
+	return Out;
+}
+
+TArray<FString> UUnrealBridgeGameplayLibrary::ListInputActionsByValueType(
+	const FString& ContentPathFilter, const FString& ValueTypeFilter, int32 MaxResults)
+{
+	TArray<FString> All = BridgeInputAuthoringImpl::ListAssetsOfClass(
+		UInputAction::StaticClass(), ContentPathFilter, /*MaxResults*/ 0);
+	if (ValueTypeFilter.IsEmpty())
+	{
+		if (MaxResults > 0 && All.Num() > MaxResults) All.SetNum(MaxResults);
+		return All;
+	}
+	const EInputActionValueType Want = BridgeInputAuthoringImpl::ParseValueType(ValueTypeFilter);
+	TArray<FString> Out;
+	for (const FString& Path : All)
+	{
+		if (UInputAction* IA = LoadObject<UInputAction>(nullptr, *Path))
+		{
+			if (IA->ValueType == Want) Out.Add(Path);
+			if (MaxResults > 0 && Out.Num() >= MaxResults) break;
+		}
+	}
+	return Out;
+}
+
+// ─── A3 / A9 / A10 — IA/IMC asset metadata + duplicate ───────────────
+
+bool UUnrealBridgeGameplayLibrary::SetInputActionProperty(
+	const FString& InputActionPath, const FString& PropertyName, const FString& JsonValue, bool bSave)
+{
+	UInputAction* IA = LoadObject<UInputAction>(nullptr, *InputActionPath);
+	if (!IA) return false;
+
+	if (PropertyName == TEXT("ValueType"))
+	{
+		FString Trim = JsonValue.TrimStartAndEnd().TrimQuotes();
+		IA->ValueType = BridgeInputAuthoringImpl::ParseValueType(Trim);
+	}
+	else
+	{
+		FProperty* Prop = FindFProperty<FProperty>(IA->GetClass(), FName(*PropertyName));
+		if (!Prop) return false;
+		void* Ptr = Prop->ContainerPtrToValuePtr<void>(IA);
+		const TCHAR* Buf = *JsonValue;
+		if (!Prop->ImportText_Direct(Buf, Ptr, IA, PPF_None))
+		{
+			UE_LOG(LogUnrealBridgeAgent, Warning,
+				TEXT("SetInputActionProperty: failed to import '%s' into '%s'"), *JsonValue, *PropertyName);
+			return false;
+		}
+	}
+
+	IA->Modify();
+	IA->PostEditChange();
+	IA->MarkPackageDirty();
+	if (bSave) UEditorLoadingAndSavingUtils::SavePackages({ IA->GetOutermost() }, false);
+	return true;
+}
+
+bool UUnrealBridgeGameplayLibrary::SetIMCMappingPlayerMappableKeySettings(
+	const FString& MappingContextPath, const FString& InputActionPath, const FString& KeyName,
+	const FString& PlayerMappableKeySettingsPath, bool bSave)
+{
+	UInputMappingContext* IMC = LoadObject<UInputMappingContext>(nullptr, *MappingContextPath);
+	UInputAction* IA = LoadObject<UInputAction>(nullptr, *InputActionPath);
+	if (!IMC || !IA) return false;
+	FKey Key(*KeyName); if (!Key.IsValid()) return false;
+
+	const int32 Idx = BridgeInputAuthoringImpl::FindMappingIndex(IMC, IA, Key);
+	if (Idx == INDEX_NONE) return false;
+
+	UPlayerMappableKeySettings* PMKS = nullptr;
+	if (!PlayerMappableKeySettingsPath.IsEmpty())
+	{
+		PMKS = LoadObject<UPlayerMappableKeySettings>(nullptr, *PlayerMappableKeySettingsPath);
+		if (!PMKS) return false;
+	}
+
+	IMC->Modify();
+	FEnhancedActionKeyMapping* M = BridgeInputAuthoringImpl::GetMutableMapping(IMC, Idx);
+	if (!M) return false;
+
+	// FEnhancedActionKeyMapping::PlayerMappableKeySettings is a protected
+	// UPROPERTY — no public setter. Set it via reflection on the struct
+	// to avoid friend-class hacks. (UE 5.7: field name verified.)
+	if (UScriptStruct* SS = FEnhancedActionKeyMapping::StaticStruct())
+	{
+		if (FObjectProperty* OP = FindFProperty<FObjectProperty>(SS, TEXT("PlayerMappableKeySettings")))
+		{
+			OP->SetObjectPropertyValue(OP->ContainerPtrToValuePtr<void>(M), PMKS);
+		}
+	}
+
+	IMC->PostEditChange();
+	IMC->MarkPackageDirty();
+	if (bSave) UEditorLoadingAndSavingUtils::SavePackages({ IMC->GetOutermost() }, false);
+	return true;
+}
+
+namespace BridgeInputAuthoringImpl
+{
+	template<typename TAsset>
+	static FString DuplicateAsset(const FString& SourcePath, const FString& DestPath, bool bSave)
+	{
+		TAsset* Src = LoadObject<TAsset>(nullptr, *SourcePath);
+		if (!Src) return FString();
+		FString PackageName, AssetName;
+		if (!SplitPackagePath(DestPath, PackageName, AssetName)) return FString();
+		if (FPackageName::DoesPackageExist(PackageName)) return FString();
+
+		UPackage* DestPkg = CreatePackage(*PackageName);
+		if (!DestPkg) return FString();
+		UObject* Dup = StaticDuplicateObject(Src, DestPkg, FName(*AssetName), RF_AllFlags);
+		if (!Dup) return FString();
+		Dup->SetFlags(RF_Public | RF_Standalone | RF_Transactional);
+		FAssetRegistryModule::AssetCreated(Dup);
+		Dup->MarkPackageDirty();
+		if (bSave) UEditorLoadingAndSavingUtils::SavePackages({ DestPkg }, false);
+		return PackageName + TEXT(".") + AssetName;
+	}
+}
+
+FString UUnrealBridgeGameplayLibrary::DuplicateInputAction(const FString& SourcePath, const FString& DestPath, bool bSave)
+{
+	return BridgeInputAuthoringImpl::DuplicateAsset<UInputAction>(SourcePath, DestPath, bSave);
+}
+
+FString UUnrealBridgeGameplayLibrary::DuplicateInputMappingContext(const FString& SourcePath, const FString& DestPath, bool bSave)
+{
+	return BridgeInputAuthoringImpl::DuplicateAsset<UInputMappingContext>(SourcePath, DestPath, bSave);
+}
+
+// ─── A7 / A8 — IMC per-mapping triggers + modifiers ─────────────────
+
+namespace BridgeInputAuthoringImpl
+{
+	static FEnhancedActionKeyMapping* ResolveMapping(UInputMappingContext* IMC,
+		const UInputAction* IA, FKey Key, int32& OutIdx)
+	{
+		OutIdx = FindMappingIndex(IMC, IA, Key);
+		if (OutIdx == INDEX_NONE) return nullptr;
+		return GetMutableMapping(IMC, OutIdx);
+	}
+}
+
+int32 UUnrealBridgeGameplayLibrary::AddTriggerToIMCMapping(
+	const FString& MappingContextPath, const FString& InputActionPath, const FString& KeyName,
+	const FString& TriggerClass, const FString& ParamsJson, bool bSave)
+{
+	UInputMappingContext* IMC = LoadObject<UInputMappingContext>(nullptr, *MappingContextPath);
+	UInputAction* IA = LoadObject<UInputAction>(nullptr, *InputActionPath);
+	if (!IMC || !IA) return -1;
+	FKey Key(*KeyName); if (!Key.IsValid()) return -1;
+
+	int32 MappingIdx;
+	FEnhancedActionKeyMapping* M = BridgeInputAuthoringImpl::ResolveMapping(IMC, IA, Key, MappingIdx);
+	if (!M) return -1;
+
+	UClass* Cls = BridgeInputAuthoringImpl::ResolveSubclass(UInputTrigger::StaticClass(), TriggerClass);
+	if (!Cls || Cls->HasAnyClassFlags(CLASS_Abstract)) return -1;
+
+	UInputTrigger* Inst = NewObject<UInputTrigger>(IMC, Cls, NAME_None, RF_Transactional);
+	if (!Inst) return -1;
+	BridgeInputAuthoringImpl::ApplyJsonParamsToObject(Inst, ParamsJson);
+
+	IMC->Modify();
+	const int32 NewIdx = M->Triggers.Add(Inst);
+	IMC->PostEditChange();
+	IMC->MarkPackageDirty();
+	if (bSave) UEditorLoadingAndSavingUtils::SavePackages({ IMC->GetOutermost() }, false);
+	return NewIdx;
+}
+
+int32 UUnrealBridgeGameplayLibrary::AddModifierToIMCMapping(
+	const FString& MappingContextPath, const FString& InputActionPath, const FString& KeyName,
+	const FString& ModifierClass, const FString& ParamsJson, bool bSave)
+{
+	UInputMappingContext* IMC = LoadObject<UInputMappingContext>(nullptr, *MappingContextPath);
+	UInputAction* IA = LoadObject<UInputAction>(nullptr, *InputActionPath);
+	if (!IMC || !IA) return -1;
+	FKey Key(*KeyName); if (!Key.IsValid()) return -1;
+
+	int32 MappingIdx;
+	FEnhancedActionKeyMapping* M = BridgeInputAuthoringImpl::ResolveMapping(IMC, IA, Key, MappingIdx);
+	if (!M) return -1;
+
+	UClass* Cls = BridgeInputAuthoringImpl::ResolveSubclass(UInputModifier::StaticClass(), ModifierClass);
+	if (!Cls || Cls->HasAnyClassFlags(CLASS_Abstract)) return -1;
+
+	UInputModifier* Inst = NewObject<UInputModifier>(IMC, Cls, NAME_None, RF_Transactional);
+	if (!Inst) return -1;
+	BridgeInputAuthoringImpl::ApplyJsonParamsToObject(Inst, ParamsJson);
+
+	IMC->Modify();
+	const int32 NewIdx = M->Modifiers.Add(Inst);
+	IMC->PostEditChange();
+	IMC->MarkPackageDirty();
+	if (bSave) UEditorLoadingAndSavingUtils::SavePackages({ IMC->GetOutermost() }, false);
+	return NewIdx;
+}
+
+bool UUnrealBridgeGameplayLibrary::RemoveTriggerFromIMCMapping(
+	const FString& MappingContextPath, const FString& InputActionPath, const FString& KeyName,
+	int32 Index, bool bSave)
+{
+	UInputMappingContext* IMC = LoadObject<UInputMappingContext>(nullptr, *MappingContextPath);
+	UInputAction* IA = LoadObject<UInputAction>(nullptr, *InputActionPath);
+	if (!IMC || !IA) return false;
+	FKey Key(*KeyName); if (!Key.IsValid()) return false;
+
+	int32 MappingIdx;
+	FEnhancedActionKeyMapping* M = BridgeInputAuthoringImpl::ResolveMapping(IMC, IA, Key, MappingIdx);
+	if (!M) return false;
+
+	const int32 Norm = BridgeInputAuthoringImpl::NormalizeIndex(Index, M->Triggers.Num());
+	if (Norm == INDEX_NONE) return false;
+
+	IMC->Modify();
+	M->Triggers.RemoveAt(Norm);
+	IMC->PostEditChange();
+	IMC->MarkPackageDirty();
+	if (bSave) UEditorLoadingAndSavingUtils::SavePackages({ IMC->GetOutermost() }, false);
+	return true;
+}
+
+bool UUnrealBridgeGameplayLibrary::RemoveModifierFromIMCMapping(
+	const FString& MappingContextPath, const FString& InputActionPath, const FString& KeyName,
+	int32 Index, bool bSave)
+{
+	UInputMappingContext* IMC = LoadObject<UInputMappingContext>(nullptr, *MappingContextPath);
+	UInputAction* IA = LoadObject<UInputAction>(nullptr, *InputActionPath);
+	if (!IMC || !IA) return false;
+	FKey Key(*KeyName); if (!Key.IsValid()) return false;
+
+	int32 MappingIdx;
+	FEnhancedActionKeyMapping* M = BridgeInputAuthoringImpl::ResolveMapping(IMC, IA, Key, MappingIdx);
+	if (!M) return false;
+
+	const int32 Norm = BridgeInputAuthoringImpl::NormalizeIndex(Index, M->Modifiers.Num());
+	if (Norm == INDEX_NONE) return false;
+
+	IMC->Modify();
+	M->Modifiers.RemoveAt(Norm);
+	IMC->PostEditChange();
+	IMC->MarkPackageDirty();
+	if (bSave) UEditorLoadingAndSavingUtils::SavePackages({ IMC->GetOutermost() }, false);
+	return true;
+}
+
+// ─── D1 / D2 — find references ──────────────────────────────────────
+
+namespace BridgeInputSearchImpl
+{
+	static void EnumerateBlueprints(const FString& PackagePathFilter, TArray<UBlueprint*>& Out)
+	{
+		IAssetRegistry& AR = FModuleManager::LoadModuleChecked<FAssetRegistryModule>("AssetRegistry").Get();
+		FString Root = PackagePathFilter.IsEmpty() ? FString(TEXT("/Game")) : PackagePathFilter;
+		if (!Root.StartsWith(TEXT("/"))) Root = TEXT("/") + Root;
+		FARFilter F; F.bRecursivePaths = true;
+		F.PackagePaths.Add(FName(*Root));
+		F.ClassPaths.Add(UBlueprint::StaticClass()->GetClassPathName());
+		F.bRecursiveClasses = true;
+
+		TArray<FAssetData> Data;
+		AR.GetAssets(F, Data);
+		for (const FAssetData& A : Data)
+		{
+			if (UBlueprint* BP = Cast<UBlueprint>(A.GetAsset())) Out.Add(BP);
+		}
+	}
+
+	static void ForEachGraph(UBlueprint* BP, TFunctionRef<void(UEdGraph*)> Fn)
+	{
+		for (UEdGraph* G : BP->UbergraphPages)   Fn(G);
+		for (UEdGraph* G : BP->FunctionGraphs)   Fn(G);
+		for (UEdGraph* G : BP->MacroGraphs)      Fn(G);
+	}
+}
+
+TArray<FBridgeInputReference> UUnrealBridgeGameplayLibrary::FindInputActionReferences(
+	const FString& InputActionPath, const FString& BlueprintPackagePathFilter)
+{
+	TArray<FBridgeInputReference> Out;
+	UInputAction* IA = LoadObject<UInputAction>(nullptr, *InputActionPath);
+	if (!IA) return Out;
+
+	{
+		IAssetRegistry& AR = FModuleManager::LoadModuleChecked<FAssetRegistryModule>("AssetRegistry").Get();
+		FARFilter F; F.bRecursivePaths = true;
+		F.ClassPaths.Add(UInputMappingContext::StaticClass()->GetClassPathName());
+		TArray<FAssetData> Data; AR.GetAssets(F, Data);
+		for (const FAssetData& A : Data)
+		{
+			UInputMappingContext* IMC = Cast<UInputMappingContext>(A.GetAsset());
+			if (!IMC) continue;
+			for (const FEnhancedActionKeyMapping& M : IMC->GetMappings())
+			{
+				if (M.Action == IA)
+				{
+					FBridgeInputReference R;
+					R.Kind = TEXT("imc_mapping");
+					R.AssetPath = IMC->GetPathName();
+					R.Detail = FString::Printf(TEXT("Key=%s"), *M.Key.ToString());
+					Out.Add(MoveTemp(R));
+				}
+			}
+		}
+	}
+
+	TArray<UBlueprint*> BPs;
+	BridgeInputSearchImpl::EnumerateBlueprints(BlueprintPackagePathFilter, BPs);
+	for (UBlueprint* BP : BPs)
+	{
+		BridgeInputSearchImpl::ForEachGraph(BP, [&](UEdGraph* G)
+		{
+			for (UEdGraphNode* N : G->Nodes)
+			{
+				if (UK2Node_EnhancedInputAction* EvNode = Cast<UK2Node_EnhancedInputAction>(N))
+				{
+					if (EvNode->InputAction == IA)
+					{
+						FBridgeInputReference R;
+						R.Kind = TEXT("event_node");
+						R.AssetPath = BP->GetPathName();
+						R.GraphName = G->GetName();
+						R.NodeGuid = EvNode->NodeGuid.ToString(EGuidFormats::Digits);
+						R.Detail = TEXT("K2Node_EnhancedInputAction");
+						Out.Add(MoveTemp(R));
+					}
+				}
+				else if (UK2Node_GetInputActionValue* GetNode = Cast<UK2Node_GetInputActionValue>(N))
+				{
+					if (GetNode->InputAction == IA)
+					{
+						FBridgeInputReference R;
+						R.Kind = TEXT("event_node");
+						R.AssetPath = BP->GetPathName();
+						R.GraphName = G->GetName();
+						R.NodeGuid = GetNode->NodeGuid.ToString(EGuidFormats::Digits);
+						R.Detail = TEXT("K2Node_GetInputActionValue");
+						Out.Add(MoveTemp(R));
+					}
+				}
+				else if (UK2Node_CallFunction* Call = Cast<UK2Node_CallFunction>(N))
+				{
+					for (UEdGraphPin* Pin : Call->Pins)
+					{
+						if (Pin->Direction != EGPD_Input) continue;
+						if (Pin->DefaultObject == IA)
+						{
+							const FName FnName = Call->FunctionReference.GetMemberName();
+							const bool bIsBindAction = FnName.ToString().Contains(TEXT("BindAction"));
+							FBridgeInputReference R;
+							R.Kind = bIsBindAction ? TEXT("bind_action_call") : TEXT("function_param");
+							R.AssetPath = BP->GetPathName();
+							R.GraphName = G->GetName();
+							R.NodeGuid = Call->NodeGuid.ToString(EGuidFormats::Digits);
+							R.Detail = FString::Printf(TEXT("%s pin=%s"),
+								*FnName.ToString(),
+								*Pin->PinName.ToString());
+							Out.Add(MoveTemp(R));
+						}
+					}
+				}
+			}
+		});
+	}
+	return Out;
+}
+
+TArray<FBridgeInputReference> UUnrealBridgeGameplayLibrary::FindInputMappingContextReferences(
+	const FString& MappingContextPath, const FString& BlueprintPackagePathFilter)
+{
+	TArray<FBridgeInputReference> Out;
+	UInputMappingContext* IMC = LoadObject<UInputMappingContext>(nullptr, *MappingContextPath);
+	if (!IMC) return Out;
+
+	TArray<UBlueprint*> BPs;
+	BridgeInputSearchImpl::EnumerateBlueprints(BlueprintPackagePathFilter, BPs);
+	for (UBlueprint* BP : BPs)
+	{
+		if (UClass* Gen = BP->GeneratedClass)
+		{
+			UObject* CDO = Gen->GetDefaultObject();
+			for (TFieldIterator<FObjectProperty> It(Gen); It; ++It)
+			{
+				FObjectProperty* OP = *It;
+				if (!OP->PropertyClass || !OP->PropertyClass->IsChildOf(UInputMappingContext::StaticClass())) continue;
+				UObject* Val = OP->GetObjectPropertyValue_InContainer(CDO);
+				if (Val == IMC)
+				{
+					FBridgeInputReference R;
+					R.Kind = TEXT("default_pawn_imc_field");
+					R.AssetPath = BP->GetPathName();
+					R.Detail = FString::Printf(TEXT("Field=%s"), *OP->GetName());
+					Out.Add(MoveTemp(R));
+				}
+			}
+		}
+
+		BridgeInputSearchImpl::ForEachGraph(BP, [&](UEdGraph* G)
+		{
+			for (UEdGraphNode* N : G->Nodes)
+			{
+				UK2Node_CallFunction* Call = Cast<UK2Node_CallFunction>(N);
+				if (!Call) continue;
+				const FName FnName = Call->FunctionReference.GetMemberName();
+				if (!FnName.ToString().Contains(TEXT("MappingContext"))) continue;
+				for (UEdGraphPin* Pin : Call->Pins)
+				{
+					if (Pin->Direction == EGPD_Input && Pin->DefaultObject == IMC)
+					{
+						FBridgeInputReference R;
+						R.Kind = TEXT("subsystem_call_arg");
+						R.AssetPath = BP->GetPathName();
+						R.GraphName = G->GetName();
+						R.NodeGuid = Call->NodeGuid.ToString(EGuidFormats::Digits);
+						R.Detail = FString::Printf(TEXT("%s pin=%s"), *FnName.ToString(), *Pin->PinName.ToString());
+						Out.Add(MoveTemp(R));
+					}
+				}
+			}
+		});
+	}
+	return Out;
+}
+
+// ─── E1 / E2 / E4 — PIE runtime state ───────────────────────────────
+
+namespace BridgeInputRuntimeImpl
+{
+	static UEnhancedInputLocalPlayerSubsystem* GetActiveSubsystem()
+	{
+		UWorld* World = nullptr;
+		for (const FWorldContext& Ctx : GEngine->GetWorldContexts())
+		{
+			if (Ctx.WorldType == EWorldType::PIE) { World = Ctx.World(); break; }
+		}
+		if (!World) return nullptr;
+		APlayerController* PC = World->GetFirstPlayerController();
+		if (!PC) return nullptr;
+		ULocalPlayer* LP = PC->GetLocalPlayer();
+		return LP ? LP->GetSubsystem<UEnhancedInputLocalPlayerSubsystem>() : nullptr;
+	}
+}
+
+TArray<FBridgeMappingContextEntry> UUnrealBridgeGameplayLibrary::GetActiveMappingContextStack()
+{
+	TArray<FBridgeMappingContextEntry> Out;
+	UEnhancedInputLocalPlayerSubsystem* Sub = BridgeInputRuntimeImpl::GetActiveSubsystem();
+	if (!Sub) return Out;
+	// UEnhancedPlayerInput::GetAppliedInputContextData is protected in 5.7;
+	// IEnhancedInputSubsystemInterface::HasMappingContext is public. Iterate
+	// every loaded IMC, ask the subsystem if it's currently applied + at what
+	// priority. Cost is O(loaded IMCs) which is small — typically <20.
+	IAssetRegistry& AR = FModuleManager::LoadModuleChecked<FAssetRegistryModule>("AssetRegistry").Get();
+	FARFilter F; F.bRecursivePaths = true;
+	F.ClassPaths.Add(UInputMappingContext::StaticClass()->GetClassPathName());
+	TArray<FAssetData> Data; AR.GetAssets(F, Data);
+	for (const FAssetData& A : Data)
+	{
+		UInputMappingContext* IMC = Cast<UInputMappingContext>(A.GetAsset());
+		if (!IMC) continue;
+		int32 Priority = 0;
+		if (Sub->HasMappingContext(IMC, Priority))
+		{
+			FBridgeMappingContextEntry E;
+			E.MappingContextPath = IMC->GetPathName();
+			E.Priority = Priority;
+			Out.Add(MoveTemp(E));
+		}
+	}
+	Out.Sort([](const FBridgeMappingContextEntry& A, const FBridgeMappingContextEntry& B) { return A.Priority > B.Priority; });
+	return Out;
+}
+
+FBridgeInputActionState UUnrealBridgeGameplayLibrary::GetCurrentInputActionState(const FString& InputActionPath)
+{
+	FBridgeInputActionState Out;
+	Out.TriggerEvent = TEXT("None");
+	UEnhancedInputLocalPlayerSubsystem* Sub = BridgeInputRuntimeImpl::GetActiveSubsystem();
+	if (!Sub) return Out;
+	UInputAction* IA = LoadObject<UInputAction>(nullptr, *InputActionPath);
+	if (!IA) return Out;
+	const FInputActionInstance* Inst = Sub->GetPlayerInput()
+		? Sub->GetPlayerInput()->FindActionInstanceData(IA)
+		: nullptr;
+	if (!Inst) return Out;
+
+	const ETriggerEvent Evt = Inst->GetTriggerEvent();
+	if (UEnum* E = StaticEnum<ETriggerEvent>())
+	{
+		Out.TriggerEvent = E->GetNameStringByValue(static_cast<int64>(Evt));
+	}
+	const FInputActionValue V = Inst->GetValue();
+	const EInputActionValueType VT = V.GetValueType();
+	switch (VT)
+	{
+	case EInputActionValueType::Boolean: Out.Value = FVector(V.Get<bool>() ? 1 : 0, 0, 0); break;
+	case EInputActionValueType::Axis1D:  Out.Value = FVector(V.Get<float>(), 0, 0); break;
+	case EInputActionValueType::Axis2D:  { const FVector2D V2 = V.Get<FVector2D>(); Out.Value = FVector(V2.X, V2.Y, 0); } break;
+	case EInputActionValueType::Axis3D:  Out.Value = V.Get<FVector>(); break;
+	}
+	Out.ElapsedTriggeredTime = Inst->GetTriggeredTime();
+	Out.ElapsedProcessedTime = Inst->GetElapsedTime();
+	Out.bHasState = true;
+	return Out;
+}
+
+int32 UUnrealBridgeGameplayLibrary::DumpInjectedInputQueue(
+	TArray<FString>& OutPaths, TArray<FVector>& OutValues, TArray<float>& OutHoldRemainingSeconds)
+{
+	OutPaths.Reset(); OutValues.Reset(); OutHoldRemainingSeconds.Reset();
+	for (const TPair<FString, BridgeAgentImpl::FStickyEntry>& Pair : BridgeAgentImpl::GStickyInputs)
+	{
+		OutPaths.Add(Pair.Key);
+		OutValues.Add(Pair.Value.Value);
+		OutHoldRemainingSeconds.Add(
+			Pair.Value.AutoClearWorldTime > 0.0
+				? static_cast<float>(Pair.Value.AutoClearWorldTime - FApp::GetCurrentTime())
+				: -1.f);
+	}
+	return OutPaths.Num();
+}
+
+// ─── E5 — raw key event ─────────────────────────────────────────────
+
+bool UUnrealBridgeGameplayLibrary::SimulateKeyEvent(const FString& KeyName, bool bPressed, int32 UserIndex)
+{
+	FKey Key(*KeyName);
+	if (!Key.IsValid()) return false;
+	if (!FSlateApplication::IsInitialized()) return false;
+
+	FKeyEvent Evt(Key, FModifierKeysState(), UserIndex, /*bIsRepeat*/ false, /*CharCode*/ 0, /*KeyCode*/ 0);
+	if (bPressed) FSlateApplication::Get().ProcessKeyDownEvent(Evt);
+	else          FSlateApplication::Get().ProcessKeyUpEvent(Evt);
+	return true;
+}
+
+// ─── F1 / F2 / F3 — legacy InputAxis/Action mappings (.ini) ─────────
+
+TArray<FBridgeLegacyAxisMapping> UUnrealBridgeGameplayLibrary::ListLegacyAxisMappings()
+{
+	TArray<FBridgeLegacyAxisMapping> Out;
+	const UInputSettings* S = UInputSettings::GetInputSettings();
+	if (!S) return Out;
+	for (const FInputAxisKeyMapping& M : S->GetAxisMappings())
+	{
+		FBridgeLegacyAxisMapping E;
+		E.MappingName = M.AxisName.ToString();
+		E.KeyName = M.Key.ToString();
+		E.Scale = M.Scale;
+		Out.Add(MoveTemp(E));
+	}
+	return Out;
+}
+
+TArray<FBridgeLegacyActionMapping> UUnrealBridgeGameplayLibrary::ListLegacyActionMappings()
+{
+	TArray<FBridgeLegacyActionMapping> Out;
+	const UInputSettings* S = UInputSettings::GetInputSettings();
+	if (!S) return Out;
+	for (const FInputActionKeyMapping& M : S->GetActionMappings())
+	{
+		FBridgeLegacyActionMapping E;
+		E.MappingName = M.ActionName.ToString();
+		E.KeyName = M.Key.ToString();
+		E.bShift = M.bShift; E.bCtrl = M.bCtrl; E.bAlt = M.bAlt; E.bCmd = M.bCmd;
+		Out.Add(MoveTemp(E));
+	}
+	return Out;
+}
+
+bool UUnrealBridgeGameplayLibrary::AddLegacyAxisMapping(const FString& MappingName, const FString& KeyName, float Scale)
+{
+	UInputSettings* S = UInputSettings::GetInputSettings();
+	if (!S) return false;
+	FKey Key(*KeyName); if (!Key.IsValid()) return false;
+	FInputAxisKeyMapping M; M.AxisName = FName(*MappingName); M.Key = Key; M.Scale = Scale;
+	S->AddAxisMapping(M);
+	S->SaveKeyMappings();
+	S->ForceRebuildKeymaps();
+	return true;
+}
+
+bool UUnrealBridgeGameplayLibrary::AddLegacyActionMapping(
+	const FString& MappingName, const FString& KeyName,
+	bool bShift, bool bCtrl, bool bAlt, bool bCmd)
+{
+	UInputSettings* S = UInputSettings::GetInputSettings();
+	if (!S) return false;
+	FKey Key(*KeyName); if (!Key.IsValid()) return false;
+	FInputActionKeyMapping M;
+	M.ActionName = FName(*MappingName); M.Key = Key;
+	M.bShift = bShift; M.bCtrl = bCtrl; M.bAlt = bAlt; M.bCmd = bCmd;
+	S->AddActionMapping(M);
+	S->SaveKeyMappings();
+	S->ForceRebuildKeymaps();
+	return true;
+}
+
+bool UUnrealBridgeGameplayLibrary::RemoveLegacyAxisMapping(const FString& MappingName, const FString& KeyName)
+{
+	UInputSettings* S = UInputSettings::GetInputSettings();
+	if (!S) return false;
+	FKey Key(*KeyName); if (!Key.IsValid()) return false;
+	FInputAxisKeyMapping M; M.AxisName = FName(*MappingName); M.Key = Key;
+	S->RemoveAxisMapping(M);
+	S->SaveKeyMappings();
+	S->ForceRebuildKeymaps();
+	return true;
+}
+
+bool UUnrealBridgeGameplayLibrary::RemoveLegacyActionMapping(const FString& MappingName, const FString& KeyName)
+{
+	UInputSettings* S = UInputSettings::GetInputSettings();
+	if (!S) return false;
+	FKey Key(*KeyName); if (!Key.IsValid()) return false;
+	FInputActionKeyMapping M; M.ActionName = FName(*MappingName); M.Key = Key;
+	S->RemoveActionMapping(M);
+	S->SaveKeyMappings();
+	S->ForceRebuildKeymaps();
+	return true;
+}
+
+// ─── D3 / D4 — validation / conflict detection ──────────────────────
+
+TArray<FBridgeInputBindingIssue> UUnrealBridgeGameplayLibrary::ValidateInputBindings(
+	const FString& BlueprintPackagePathFilter)
+{
+	TArray<FBridgeInputBindingIssue> Out;
+
+	{
+		IAssetRegistry& AR = FModuleManager::LoadModuleChecked<FAssetRegistryModule>("AssetRegistry").Get();
+		FARFilter F; F.bRecursivePaths = true;
+		F.ClassPaths.Add(UInputMappingContext::StaticClass()->GetClassPathName());
+		TArray<FAssetData> Data; AR.GetAssets(F, Data);
+		for (const FAssetData& A : Data)
+		{
+			UInputMappingContext* IMC = Cast<UInputMappingContext>(A.GetAsset());
+			if (!IMC) continue;
+			const TArray<FEnhancedActionKeyMapping>& Maps = IMC->GetMappings();
+			for (int32 i = 0; i < Maps.Num(); ++i)
+			{
+				if (Maps[i].Action == nullptr)
+				{
+					FBridgeInputBindingIssue I;
+					I.Kind = TEXT("imc_null_action");
+					I.AssetPath = IMC->GetPathName();
+					I.Detail = FString::Printf(TEXT("idx=%d Key=%s"), i, *Maps[i].Key.ToString());
+					Out.Add(MoveTemp(I));
+				}
+			}
+		}
+	}
+
+	TArray<UBlueprint*> BPs;
+	BridgeInputSearchImpl::EnumerateBlueprints(BlueprintPackagePathFilter, BPs);
+	for (UBlueprint* BP : BPs)
+	{
+		BridgeInputSearchImpl::ForEachGraph(BP, [&](UEdGraph* G)
+		{
+			for (UEdGraphNode* N : G->Nodes)
+			{
+				if (UK2Node_EnhancedInputAction* Ev = Cast<UK2Node_EnhancedInputAction>(N))
+				{
+					if (Ev->InputAction == nullptr)
+					{
+						FBridgeInputBindingIssue I;
+						I.Kind = TEXT("event_node_null_ia");
+						I.AssetPath = BP->GetPathName();
+						I.Detail = FString::Printf(TEXT("graph=%s node=%s"),
+							*G->GetName(), *Ev->NodeGuid.ToString(EGuidFormats::Digits));
+						Out.Add(MoveTemp(I));
+					}
+				}
+				else if (UK2Node_GetInputActionValue* Get = Cast<UK2Node_GetInputActionValue>(N))
+				{
+					if (Get->InputAction == nullptr)
+					{
+						FBridgeInputBindingIssue I;
+						I.Kind = TEXT("event_node_null_ia");
+						I.AssetPath = BP->GetPathName();
+						I.Detail = FString::Printf(TEXT("graph=%s node=%s class=GetInputActionValue"),
+							*G->GetName(), *Get->NodeGuid.ToString(EGuidFormats::Digits));
+						Out.Add(MoveTemp(I));
+					}
+				}
+			}
+		});
+	}
+	return Out;
+}
+
+TArray<FBridgeKeyConflict> UUnrealBridgeGameplayLibrary::DetectKeyConflicts(const TArray<FString>& MappingContextPaths)
+{
+	TArray<FBridgeKeyConflict> Out;
+	for (const FString& IMCPath : MappingContextPaths)
+	{
+		UInputMappingContext* IMC = LoadObject<UInputMappingContext>(nullptr, *IMCPath);
+		if (!IMC) continue;
+		TMap<FString, TArray<FString>> KeyToActions;
+		for (const FEnhancedActionKeyMapping& M : IMC->GetMappings())
+		{
+			if (!M.Action) continue;
+			KeyToActions.FindOrAdd(M.Key.ToString()).AddUnique(M.Action->GetPathName());
+		}
+		for (const TPair<FString, TArray<FString>>& Pair : KeyToActions)
+		{
+			if (Pair.Value.Num() < 2) continue;
+			FBridgeKeyConflict C;
+			C.MappingContextPath = IMCPath;
+			C.KeyName = Pair.Key;
+			C.ActionPaths = Pair.Value;
+			Out.Add(MoveTemp(C));
+		}
+	}
+	return Out;
 }
