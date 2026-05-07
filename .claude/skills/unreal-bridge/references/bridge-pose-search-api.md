@@ -86,7 +86,7 @@ Each entry exposes the same fields as the editor inspector:
 | `asset_path` | Path of the underlying anim asset. |
 | `enabled`, `disable_reselection`, `mirror_option` | Per-entry runtime flags. |
 | `sampling_range_min`, `sampling_range_max` | Trim range. `[0, 0]` means "use entire animation". |
-| `blend_space_horizontal_samples`, `blend_space_vertical_samples`, `b_blend_space_use_grid_for_sampling`, `b_blend_space_use_single_sample`, `blend_space_param_x/y` | BlendSpace-specific. `-1` H/V samples means "not a BlendSpace". |
+| `blend_space_horizontal_samples`, `blend_space_vertical_samples`, `blend_space_use_grid_for_sampling`, `blend_space_use_single_sample`, `blend_space_param_x/y` | BlendSpace-specific. `-1` H/V samples means "not a BlendSpace". |
 
 ### `find_databases_using_animation(animation_asset_path) → TArray<FString>`
 
@@ -126,8 +126,8 @@ r = unreal.UnrealBridgePoseSearchLibrary.add_blend_space_to_database(
     database_path='...',
     blend_space_path='/Game/.../BS_Locomotion',
     h_samples=9, v_samples=2,
-    b_use_grid_for_sampling=False,    # True overrides h/v with the BS's authored grid
-    b_use_single_sample=False,        # True treats the BS as one segment at (param_x, param_y)
+    use_grid_for_sampling=False,    # True overrides h/v with the BS's authored grid
+    use_single_sample=False,        # True treats the BS as one segment at (param_x, param_y)
     blend_param_x=0.0, blend_param_y=0.0,
     sampling_range_min=0.0, sampling_range_max=0.0,
     mirror_option='UnmirroredOnly', enabled=True,
@@ -158,7 +158,7 @@ unreal.UnrealBridgePoseSearchLibrary.set_database_animation_mirror_option(
 unreal.UnrealBridgePoseSearchLibrary.set_database_blend_space_sampling(
     database_path='...', index=3,
     h_samples=11, v_samples=3,
-    b_use_grid_for_sampling=False, b_use_single_sample=False,
+    use_grid_for_sampling=False, use_single_sample=False,
     blend_param_x=0.0, blend_param_y=0.0)
 ```
 

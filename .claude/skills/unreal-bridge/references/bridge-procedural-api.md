@@ -421,7 +421,7 @@ forest = P.filter_points_by_density_mask(pts,
 
 ---
 
-## filter_points_inside_actor(pts, container_actor_label, b_inside) -> list[Vector]
+## filter_points_inside_actor(pts, container_actor_label, inside) -> list[Vector]
 
 Keep or drop points based on whether they're inside `container_actor_label`'s collision shape. For `AVolume` and subclasses uses `EncompassesPoint` (accurate brush). For non-volume actors falls back to AABB containment (loose).
 
@@ -446,7 +446,7 @@ safe = P.filter_points_inside_actor(pts, "BP_NoSpawnZone", inside=False)
 
 **Pitfalls**
 - Non-volume actors fall back to bounds — sphere-shaped or thin actors give very loose results. Use `AVolume` subclasses (`ATriggerVolume`, `ABlockingVolume`) for precise containment.
-- bool kwarg is `inside`, not `b_inside` (b-prefix stripped per UE Python convention).
+- bool kwarg is `inside`, not `inside` (b-prefix stripped per UE Python convention).
 
 ---
 
@@ -542,6 +542,7 @@ assert actor == same
 **Pitfalls**
 - **Tag-based lookup is mesh-blind**: if an actor already exists with `tag`, this function returns it *regardless* of whether its current mesh matches `mesh_path`. To swap the mesh on an existing stub, destroy the actor first via `unreal.UnrealBridgeLevelLibrary.destroy_actor(label)` then re-call this function.
 - Spawned class is `AActor`, not `AStaticMeshActor` — `AStaticMeshActor`'s `RootComponent` is a plain `UStaticMeshComponent` and cannot be swapped to ISM. The stub looks empty in the World Outliner's class column ("Actor") — that's intentional.
+- **`find_actors_by_class("/Script/Engine.StaticMeshActor")` will NOT find these stubs** — they're plain `AActor`. To enumerate procedural ISM actors, use `find_actors_by_tag(tag)` (the function tags them with the `tag` argument) or `list_actors(class_filter='', tag_filter=tag, ...)`.
 - `FScopedTransaction` is wrapped, so Ctrl+Z undoes the actor creation.
 
 ---

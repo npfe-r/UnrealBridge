@@ -16,7 +16,7 @@ structural rather than mnemonic.
 
 import unreal
 
-_GENERATED_AT = '2026-05-04T17:35:05+00:00'
+_GENERATED_AT = '2026-05-07T17:14:06+00:00'
 _UE_VERSION = '5.7.1-48512491+++UE5+Release-5.7'
 
 class Anim:
@@ -631,6 +631,11 @@ class Blueprint:
         return unreal.UnrealBridgeBlueprintLibrary.add_dispatcher_event_node(blueprint_path, graph_name, dispatcher_name, x, y)
 
     @staticmethod
+    def add_enhanced_input_action_event_node(*, blueprint_path, graph_name, input_action_path, node_pos_x, node_pos_y):
+        """X.add_enhanced_input_action_event_node(blueprint_path, graph_name, input_action_path, node_pos_x, node_pos_y) -> str"""
+        return unreal.UnrealBridgeBlueprintLibrary.add_enhanced_input_action_event_node(blueprint_path, graph_name, input_action_path, node_pos_x, node_pos_y)
+
+    @staticmethod
     def add_enum_literal_node(*, blueprint_path, graph_name, enum_path, value_name, node_pos_x, node_pos_y):
         """X.add_enum_literal_node(blueprint_path, graph_name, enum_path, value_name, node_pos_x, node_pos_y) -> str"""
         return unreal.UnrealBridgeBlueprintLibrary.add_enum_literal_node(blueprint_path, graph_name, enum_path, value_name, node_pos_x, node_pos_y)
@@ -671,9 +676,34 @@ class Blueprint:
         return unreal.UnrealBridgeBlueprintLibrary.add_function_parameter(blueprint_path, function_name, param_name, type_string, is_return)
 
     @staticmethod
+    def add_get_input_action_value_node(*, blueprint_path, graph_name, input_action_path, node_pos_x, node_pos_y):
+        """X.add_get_input_action_value_node(blueprint_path, graph_name, input_action_path, node_pos_x, node_pos_y) -> str"""
+        return unreal.UnrealBridgeBlueprintLibrary.add_get_input_action_value_node(blueprint_path, graph_name, input_action_path, node_pos_x, node_pos_y)
+
+    @staticmethod
+    def add_input_axis_key_event_node(*, blueprint_path, graph_name, axis_key_name, node_pos_x, node_pos_y):
+        """X.add_input_axis_key_event_node(blueprint_path, graph_name, axis_key_name, node_pos_x, node_pos_y) -> str"""
+        return unreal.UnrealBridgeBlueprintLibrary.add_input_axis_key_event_node(blueprint_path, graph_name, axis_key_name, node_pos_x, node_pos_y)
+
+    @staticmethod
+    def add_input_key_event_node(*, blueprint_path, graph_name, key_name, node_pos_x, node_pos_y):
+        """X.add_input_key_event_node(blueprint_path, graph_name, key_name, node_pos_x, node_pos_y) -> str"""
+        return unreal.UnrealBridgeBlueprintLibrary.add_input_key_event_node(blueprint_path, graph_name, key_name, node_pos_x, node_pos_y)
+
+    @staticmethod
     def add_interface_message_node(*, blueprint_path, graph_name, interface_path, function_name, node_pos_x, node_pos_y):
         """X.add_interface_message_node(blueprint_path, graph_name, interface_path, function_name, node_pos_x, node_pos_y) -> str"""
         return unreal.UnrealBridgeBlueprintLibrary.add_interface_message_node(blueprint_path, graph_name, interface_path, function_name, node_pos_x, node_pos_y)
+
+    @staticmethod
+    def add_legacy_input_action_event_node(*, blueprint_path, graph_name, action_name, node_pos_x, node_pos_y):
+        """X.add_legacy_input_action_event_node(blueprint_path, graph_name, action_name, node_pos_x, node_pos_y) -> str"""
+        return unreal.UnrealBridgeBlueprintLibrary.add_legacy_input_action_event_node(blueprint_path, graph_name, action_name, node_pos_x, node_pos_y)
+
+    @staticmethod
+    def add_legacy_input_axis_event_node(*, blueprint_path, graph_name, axis_name, node_pos_x, node_pos_y):
+        """X.add_legacy_input_axis_event_node(blueprint_path, graph_name, axis_name, node_pos_x, node_pos_y) -> str"""
+        return unreal.UnrealBridgeBlueprintLibrary.add_legacy_input_axis_event_node(blueprint_path, graph_name, axis_name, node_pos_x, node_pos_y)
 
     @staticmethod
     def add_make_array_node(*, blueprint_path, graph_name, node_pos_x, node_pos_y):
@@ -694,6 +724,11 @@ class Blueprint:
     def add_node_by_class_name(*, blueprint_path, graph_name, node_class_path, node_pos_x, node_pos_y):
         """X.add_node_by_class_name(blueprint_path, graph_name, node_class_path, node_pos_x, node_pos_y) -> str"""
         return unreal.UnrealBridgeBlueprintLibrary.add_node_by_class_name(blueprint_path, graph_name, node_class_path, node_pos_x, node_pos_y)
+
+    @staticmethod
+    def add_pawn_input_begin_play_setup(*, blueprint_path, imc_path, priority, origin_x, origin_y):
+        """X.add_pawn_input_begin_play_setup(blueprint_path, imc_path, priority, origin_x, origin_y) -> bool"""
+        return unreal.UnrealBridgeBlueprintLibrary.add_pawn_input_begin_play_setup(blueprint_path, imc_path, priority, origin_x, origin_y)
 
     @staticmethod
     def add_reroute_node(*, blueprint_path, graph_name, x, y):
@@ -1271,6 +1306,11 @@ class Blueprint:
         return unreal.UnrealBridgeBlueprintLibrary.update_comment_box(blueprint_path, graph_name, comment_guid, node_guids, text)
 
     @staticmethod
+    def wire_enhanced_input_action_to_function(*, blueprint_path, graph_name, input_action_path, trigger_event_pin, target_class_path, target_function_name, event_node_x, event_node_y, call_node_x, call_node_y, auto_wire_action_value=True):
+        """X.wire_enhanced_input_action_to_function(blueprint_path, graph_name, input_action_path, trigger_event_pin, target_class_path, target_function_name, event_node_x, event_node_y, call_node_x, call_node_y, auto_wire_action_value=True) -> BridgeWireIAResult"""
+        return unreal.UnrealBridgeBlueprintLibrary.wire_enhanced_input_action_to_function(blueprint_path, graph_name, input_action_path, trigger_event_pin, target_class_path, target_function_name, event_node_x, event_node_y, call_node_x, call_node_y, auto_wire_action_value)
+
+    @staticmethod
     def wrap_nodes_in_comment_box(*, blueprint_path, graph_name, node_guids, text):
         """X.wrap_nodes_in_comment_box(blueprint_path, graph_name, node_guids, text) -> str"""
         return unreal.UnrealBridgeBlueprintLibrary.wrap_nodes_in_comment_box(blueprint_path, graph_name, node_guids, text)
@@ -1563,6 +1603,16 @@ class DataTable:
         return unreal.UnrealBridgeDataTableLibrary.copy_data_table_rows(source_data_table_path, dest_data_table_path, row_names, overwrite)
 
     @staticmethod
+    def create_data_table_from_csv(*, asset_path, row_struct_path, csv_content):
+        """X.create_data_table_from_csv(asset_path, row_struct_path, csv_content) -> BridgeDataTableImportResult"""
+        return unreal.UnrealBridgeDataTableLibrary.create_data_table_from_csv(asset_path, row_struct_path, csv_content)
+
+    @staticmethod
+    def create_data_table_from_json(*, asset_path, row_struct_path, json_content):
+        """X.create_data_table_from_json(asset_path, row_struct_path, json_content) -> BridgeDataTableImportResult"""
+        return unreal.UnrealBridgeDataTableLibrary.create_data_table_from_json(asset_path, row_struct_path, json_content)
+
+    @staticmethod
     def diff_data_table_rows(*, data_table_path_a, row_name_a, data_table_path_b, row_name_b):
         """X.diff_data_table_rows(data_table_path_a, row_name_a, data_table_path_b, row_name_b) -> Array[str]"""
         return unreal.UnrealBridgeDataTableLibrary.diff_data_table_rows(data_table_path_a, row_name_a, data_table_path_b, row_name_b)
@@ -1673,9 +1723,19 @@ class DataTable:
         return unreal.UnrealBridgeDataTableLibrary.import_data_table_from_csv(data_table_path, csv_file_path)
 
     @staticmethod
+    def import_data_table_from_csv_text(*, data_table_path, csv_content):
+        """X.import_data_table_from_csv_text(data_table_path, csv_content) -> BridgeDataTableImportResult"""
+        return unreal.UnrealBridgeDataTableLibrary.import_data_table_from_csv_text(data_table_path, csv_content)
+
+    @staticmethod
     def import_data_table_from_json(*, data_table_path, json_file_path):
         """X.import_data_table_from_json(data_table_path, json_file_path) -> bool"""
         return unreal.UnrealBridgeDataTableLibrary.import_data_table_from_json(data_table_path, json_file_path)
+
+    @staticmethod
+    def import_data_table_from_json_text(*, data_table_path, json_content):
+        """X.import_data_table_from_json_text(data_table_path, json_content) -> BridgeDataTableImportResult"""
+        return unreal.UnrealBridgeDataTableLibrary.import_data_table_from_json_text(data_table_path, json_content)
 
     @staticmethod
     def remove_data_table_row(*, data_table_path, row_name):
@@ -2685,9 +2745,24 @@ class Gameplay:
         return unreal.UnrealBridgeGameplayLibrary.add_force_to_pie_actor(actor_name, force)
 
     @staticmethod
+    def add_ia_mapping_to_imc(*, mapping_context_path, input_action_path, key_name):
+        """X.add_ia_mapping_to_imc(mapping_context_path, input_action_path, key_name) -> bool"""
+        return unreal.UnrealBridgeGameplayLibrary.add_ia_mapping_to_imc(mapping_context_path, input_action_path, key_name)
+
+    @staticmethod
     def add_impulse_to_pie_actor(*, actor_name, impulse, velocity_change=False):
         """X.add_impulse_to_pie_actor(actor_name, impulse, velocity_change=False) -> bool"""
         return unreal.UnrealBridgeGameplayLibrary.add_impulse_to_pie_actor(actor_name, impulse, velocity_change)
+
+    @staticmethod
+    def add_legacy_action_mapping(*, mapping_name, key_name, shift=False, ctrl=False, alt=False, cmd=False):
+        """X.add_legacy_action_mapping(mapping_name, key_name, shift=False, ctrl=False, alt=False, cmd=False) -> bool"""
+        return unreal.UnrealBridgeGameplayLibrary.add_legacy_action_mapping(mapping_name, key_name, shift, ctrl, alt, cmd)
+
+    @staticmethod
+    def add_legacy_axis_mapping(*, mapping_name, key_name, scale=1.000000):
+        """X.add_legacy_axis_mapping(mapping_name, key_name, scale=1.000000) -> bool"""
+        return unreal.UnrealBridgeGameplayLibrary.add_legacy_axis_mapping(mapping_name, key_name, scale)
 
     @staticmethod
     def add_mapping_context(*, mapping_context_path, priority=0):
@@ -2695,9 +2770,29 @@ class Gameplay:
         return unreal.UnrealBridgeGameplayLibrary.add_mapping_context(mapping_context_path, priority)
 
     @staticmethod
+    def add_modifier_to_ia(*, input_action_path, modifier_class, params_json="{}", save=True):
+        """X.add_modifier_to_ia(input_action_path, modifier_class, params_json="{}", save=True) -> int32"""
+        return unreal.UnrealBridgeGameplayLibrary.add_modifier_to_ia(input_action_path, modifier_class, params_json, save)
+
+    @staticmethod
+    def add_modifier_to_imc_mapping(*, mapping_context_path, input_action_path, key_name, modifier_class, params_json="{}", save=True):
+        """X.add_modifier_to_imc_mapping(mapping_context_path, input_action_path, key_name, modifier_class, params_json="{}", save=True) -> int32"""
+        return unreal.UnrealBridgeGameplayLibrary.add_modifier_to_imc_mapping(mapping_context_path, input_action_path, key_name, modifier_class, params_json, save)
+
+    @staticmethod
     def add_on_screen_debug_message(*, message, duration_seconds=4.000000, r=1.000000, g=1.000000, b=1.000000):
         """X.add_on_screen_debug_message(message, duration_seconds=4.000000, r=1.000000, g=1.000000, b=1.000000) -> bool"""
         return unreal.UnrealBridgeGameplayLibrary.add_on_screen_debug_message(message, duration_seconds, r, g, b)
+
+    @staticmethod
+    def add_trigger_to_ia(*, input_action_path, trigger_class, params_json="{}", save=True):
+        """X.add_trigger_to_ia(input_action_path, trigger_class, params_json="{}", save=True) -> int32"""
+        return unreal.UnrealBridgeGameplayLibrary.add_trigger_to_ia(input_action_path, trigger_class, params_json, save)
+
+    @staticmethod
+    def add_trigger_to_imc_mapping(*, mapping_context_path, input_action_path, key_name, trigger_class, params_json="{}", save=True):
+        """X.add_trigger_to_imc_mapping(mapping_context_path, input_action_path, key_name, trigger_class, params_json="{}", save=True) -> int32"""
+        return unreal.UnrealBridgeGameplayLibrary.add_trigger_to_imc_mapping(mapping_context_path, input_action_path, key_name, trigger_class, params_json, save)
 
     @staticmethod
     def apply_damage_to_actor(*, target_actor_name, damage_amount):
@@ -2730,6 +2825,16 @@ class Gameplay:
         return unreal.UnrealBridgeGameplayLibrary.clear_sticky_input(input_action_path)
 
     @staticmethod
+    def create_input_action(*, package_path, value_type, description="", save=True):
+        """X.create_input_action(package_path, value_type, description="", save=True) -> str"""
+        return unreal.UnrealBridgeGameplayLibrary.create_input_action(package_path, value_type, description, save)
+
+    @staticmethod
+    def create_input_mapping_context(*, package_path, description="", save=True):
+        """X.create_input_mapping_context(package_path, description="", save=True) -> str"""
+        return unreal.UnrealBridgeGameplayLibrary.create_input_mapping_context(package_path, description, save)
+
+    @staticmethod
     def deproject_screen_to_world(*, normalized_x, normalized_y):
         """X.deproject_screen_to_world(normalized_x, normalized_y) -> (out_origin=Vector, out_direction=Vector) or None"""
         return unreal.UnrealBridgeGameplayLibrary.deproject_screen_to_world(normalized_x, normalized_y)
@@ -2738,6 +2843,11 @@ class Gameplay:
     def destroy_actor_in_pie(*, actor_name):
         """X.destroy_actor_in_pie(actor_name) -> bool"""
         return unreal.UnrealBridgeGameplayLibrary.destroy_actor_in_pie(actor_name)
+
+    @staticmethod
+    def detect_key_conflicts(*, mapping_context_paths):
+        """X.detect_key_conflicts(mapping_context_paths) -> Array[BridgeKeyConflict]"""
+        return unreal.UnrealBridgeGameplayLibrary.detect_key_conflicts(mapping_context_paths)
 
     @staticmethod
     def draw_debug_arrow(*, start, end, arrow_size=20.000000, duration_seconds=5.000000):
@@ -2765,6 +2875,31 @@ class Gameplay:
         return unreal.UnrealBridgeGameplayLibrary.draw_debug_string(text, location, duration_seconds)
 
     @staticmethod
+    def dump_injected_input_queue():
+        """X.dump_injected_input_queue() -> (int32, out_paths=Array[str], out_values=Array[Vector], out_hold_remaining_seconds=Array[float])"""
+        return unreal.UnrealBridgeGameplayLibrary.dump_injected_input_queue()
+
+    @staticmethod
+    def duplicate_input_action(*, source_path, dest_path, save=True):
+        """X.duplicate_input_action(source_path, dest_path, save=True) -> str"""
+        return unreal.UnrealBridgeGameplayLibrary.duplicate_input_action(source_path, dest_path, save)
+
+    @staticmethod
+    def duplicate_input_mapping_context(*, source_path, dest_path, save=True):
+        """X.duplicate_input_mapping_context(source_path, dest_path, save=True) -> str"""
+        return unreal.UnrealBridgeGameplayLibrary.duplicate_input_mapping_context(source_path, dest_path, save)
+
+    @staticmethod
+    def find_input_action_references(*, input_action_path, blueprint_package_path_filter=""):
+        """X.find_input_action_references(input_action_path, blueprint_package_path_filter="") -> Array[BridgeInputReference]"""
+        return unreal.UnrealBridgeGameplayLibrary.find_input_action_references(input_action_path, blueprint_package_path_filter)
+
+    @staticmethod
+    def find_input_mapping_context_references(*, mapping_context_path, blueprint_package_path_filter=""):
+        """X.find_input_mapping_context_references(mapping_context_path, blueprint_package_path_filter="") -> Array[BridgeInputReference]"""
+        return unreal.UnrealBridgeGameplayLibrary.find_input_mapping_context_references(mapping_context_path, blueprint_package_path_filter)
+
+    @staticmethod
     def find_nav_path(*, start_location, end_location):
         """X.find_nav_path(start_location, end_location) -> (out_waypoints=Array[Vector], out_path_length=float) or None"""
         return unreal.UnrealBridgeGameplayLibrary.find_nav_path(start_location, end_location)
@@ -2778,6 +2913,11 @@ class Gameplay:
     def flush_persistent_debug_draws():
         """X.flush_persistent_debug_draws() -> bool"""
         return unreal.UnrealBridgeGameplayLibrary.flush_persistent_debug_draws()
+
+    @staticmethod
+    def get_active_mapping_context_stack():
+        """X.get_active_mapping_context_stack() -> Array[BridgeMappingContextEntry]"""
+        return unreal.UnrealBridgeGameplayLibrary.get_active_mapping_context_stack()
 
     @staticmethod
     def get_actor_at_screen_position(*, normalized_x, normalized_y, max_distance=10000.000000):
@@ -2835,6 +2975,11 @@ class Gameplay:
         return unreal.UnrealBridgeGameplayLibrary.get_control_rotation()
 
     @staticmethod
+    def get_current_input_action_state(*, input_action_path):
+        """X.get_current_input_action_state(input_action_path) -> BridgeInputActionState"""
+        return unreal.UnrealBridgeGameplayLibrary.get_current_input_action_state(input_action_path)
+
+    @staticmethod
     def get_distance_to_pawn(*, location):
         """X.get_distance_to_pawn(location) -> float"""
         return unreal.UnrealBridgeGameplayLibrary.get_distance_to_pawn(location)
@@ -2855,14 +3000,29 @@ class Gameplay:
         return unreal.UnrealBridgeGameplayLibrary.get_global_time_dilation()
 
     @staticmethod
+    def get_input_action_modifiers_full(*, input_action_path):
+        """X.get_input_action_modifiers_full(input_action_path) -> Array[BridgeInputComponentInstance]"""
+        return unreal.UnrealBridgeGameplayLibrary.get_input_action_modifiers_full(input_action_path)
+
+    @staticmethod
     def get_input_action_triggers(*, input_action_path):
         """X.get_input_action_triggers(input_action_path) -> (out_trigger_names=Array[str], out_threshold_seconds=Array[float]) or None"""
         return unreal.UnrealBridgeGameplayLibrary.get_input_action_triggers(input_action_path)
 
     @staticmethod
+    def get_input_action_triggers_full(*, input_action_path):
+        """X.get_input_action_triggers_full(input_action_path) -> Array[BridgeInputComponentInstance]"""
+        return unreal.UnrealBridgeGameplayLibrary.get_input_action_triggers_full(input_action_path)
+
+    @staticmethod
     def get_input_action_value_type(*, input_action_path):
         """X.get_input_action_value_type(input_action_path) -> str"""
         return unreal.UnrealBridgeGameplayLibrary.get_input_action_value_type(input_action_path)
+
+    @staticmethod
+    def get_input_mapping_context_mappings(*, mapping_context_path):
+        """X.get_input_mapping_context_mappings(mapping_context_path) -> Array[BridgeIMCMapping]"""
+        return unreal.UnrealBridgeGameplayLibrary.get_input_mapping_context_mappings(mapping_context_path)
 
     @staticmethod
     def get_nav_mesh_bounds():
@@ -3005,6 +3165,31 @@ class Gameplay:
         return unreal.UnrealBridgeGameplayLibrary.jump()
 
     @staticmethod
+    def list_input_actions(*, content_path_filter, max_results=0):
+        """X.list_input_actions(content_path_filter, max_results=0) -> Array[str]"""
+        return unreal.UnrealBridgeGameplayLibrary.list_input_actions(content_path_filter, max_results)
+
+    @staticmethod
+    def list_input_actions_by_value_type(*, content_path_filter, value_type_filter, max_results=0):
+        """X.list_input_actions_by_value_type(content_path_filter, value_type_filter, max_results=0) -> Array[str]"""
+        return unreal.UnrealBridgeGameplayLibrary.list_input_actions_by_value_type(content_path_filter, value_type_filter, max_results)
+
+    @staticmethod
+    def list_input_mapping_contexts(*, content_path_filter, max_results=0):
+        """X.list_input_mapping_contexts(content_path_filter, max_results=0) -> Array[str]"""
+        return unreal.UnrealBridgeGameplayLibrary.list_input_mapping_contexts(content_path_filter, max_results)
+
+    @staticmethod
+    def list_legacy_action_mappings():
+        """X.list_legacy_action_mappings() -> Array[BridgeLegacyActionMapping]"""
+        return unreal.UnrealBridgeGameplayLibrary.list_legacy_action_mappings()
+
+    @staticmethod
+    def list_legacy_axis_mappings():
+        """X.list_legacy_axis_mappings() -> Array[BridgeLegacyAxisMapping]"""
+        return unreal.UnrealBridgeGameplayLibrary.list_legacy_axis_mappings()
+
+    @staticmethod
     def pause_game(*, paused):
         """X.pause_game(paused) -> bool"""
         return unreal.UnrealBridgeGameplayLibrary.pause_game(paused)
@@ -3040,9 +3225,44 @@ class Gameplay:
         return unreal.UnrealBridgeGameplayLibrary.project_world_to_screen(world_location)
 
     @staticmethod
+    def remove_ia_mapping_from_imc(*, mapping_context_path, input_action_path, key_name):
+        """X.remove_ia_mapping_from_imc(mapping_context_path, input_action_path, key_name) -> bool"""
+        return unreal.UnrealBridgeGameplayLibrary.remove_ia_mapping_from_imc(mapping_context_path, input_action_path, key_name)
+
+    @staticmethod
+    def remove_legacy_action_mapping(*, mapping_name, key_name):
+        """X.remove_legacy_action_mapping(mapping_name, key_name) -> bool"""
+        return unreal.UnrealBridgeGameplayLibrary.remove_legacy_action_mapping(mapping_name, key_name)
+
+    @staticmethod
+    def remove_legacy_axis_mapping(*, mapping_name, key_name):
+        """X.remove_legacy_axis_mapping(mapping_name, key_name) -> bool"""
+        return unreal.UnrealBridgeGameplayLibrary.remove_legacy_axis_mapping(mapping_name, key_name)
+
+    @staticmethod
     def remove_mapping_context(*, mapping_context_path):
         """X.remove_mapping_context(mapping_context_path) -> bool"""
         return unreal.UnrealBridgeGameplayLibrary.remove_mapping_context(mapping_context_path)
+
+    @staticmethod
+    def remove_modifier_from_ia(*, input_action_path, index, save=True):
+        """X.remove_modifier_from_ia(input_action_path, index, save=True) -> bool"""
+        return unreal.UnrealBridgeGameplayLibrary.remove_modifier_from_ia(input_action_path, index, save)
+
+    @staticmethod
+    def remove_modifier_from_imc_mapping(*, mapping_context_path, input_action_path, key_name, index, save=True):
+        """X.remove_modifier_from_imc_mapping(mapping_context_path, input_action_path, key_name, index, save=True) -> bool"""
+        return unreal.UnrealBridgeGameplayLibrary.remove_modifier_from_imc_mapping(mapping_context_path, input_action_path, key_name, index, save)
+
+    @staticmethod
+    def remove_trigger_from_ia(*, input_action_path, index, save=True):
+        """X.remove_trigger_from_ia(input_action_path, index, save=True) -> bool"""
+        return unreal.UnrealBridgeGameplayLibrary.remove_trigger_from_ia(input_action_path, index, save)
+
+    @staticmethod
+    def remove_trigger_from_imc_mapping(*, mapping_context_path, input_action_path, key_name, index, save=True):
+        """X.remove_trigger_from_imc_mapping(mapping_context_path, input_action_path, key_name, index, save=True) -> bool"""
+        return unreal.UnrealBridgeGameplayLibrary.remove_trigger_from_imc_mapping(mapping_context_path, input_action_path, key_name, index, save)
 
     @staticmethod
     def respawn_player_pawn():
@@ -3070,6 +3290,16 @@ class Gameplay:
         return unreal.UnrealBridgeGameplayLibrary.set_global_time_dilation(scale)
 
     @staticmethod
+    def set_imc_mapping_player_mappable_key_settings(*, mapping_context_path, input_action_path, key_name, player_mappable_key_settings_path, save=True):
+        """X.set_imc_mapping_player_mappable_key_settings(mapping_context_path, input_action_path, key_name, player_mappable_key_settings_path, save=True) -> bool"""
+        return unreal.UnrealBridgeGameplayLibrary.set_imc_mapping_player_mappable_key_settings(mapping_context_path, input_action_path, key_name, player_mappable_key_settings_path, save)
+
+    @staticmethod
+    def set_input_action_property(*, input_action_path, property_name, json_value, save=True):
+        """X.set_input_action_property(input_action_path, property_name, json_value, save=True) -> bool"""
+        return unreal.UnrealBridgeGameplayLibrary.set_input_action_property(input_action_path, property_name, json_value, save)
+
+    @staticmethod
     def set_pawn_gravity_scale(*, scale):
         """X.set_pawn_gravity_scale(scale) -> bool"""
         return unreal.UnrealBridgeGameplayLibrary.set_pawn_gravity_scale(scale)
@@ -3088,6 +3318,11 @@ class Gameplay:
     def simulate_jump_arc(*, start_location, initial_velocity, max_time, step_dt, max_path_length):
         """X.simulate_jump_arc(start_location, initial_velocity, max_time, step_dt, max_path_length) -> (out_land_location=Vector, out_land_actor_label=str) or None"""
         return unreal.UnrealBridgeGameplayLibrary.simulate_jump_arc(start_location, initial_velocity, max_time, step_dt, max_path_length)
+
+    @staticmethod
+    def simulate_key_event(*, key_name, pressed, user_index=0):
+        """X.simulate_key_event(key_name, pressed, user_index=0) -> bool"""
+        return unreal.UnrealBridgeGameplayLibrary.simulate_key_event(key_name, pressed, user_index)
 
     @staticmethod
     def spawn_actor_in_pie(*, class_path, location, rotation):
@@ -3128,6 +3363,11 @@ class Gameplay:
     def unlock_camera_fov():
         """X.unlock_camera_fov() -> bool"""
         return unreal.UnrealBridgeGameplayLibrary.unlock_camera_fov()
+
+    @staticmethod
+    def validate_input_bindings(*, blueprint_package_path_filter=""):
+        """X.validate_input_bindings(blueprint_package_path_filter="") -> Array[BridgeInputBindingIssue]"""
+        return unreal.UnrealBridgeGameplayLibrary.validate_input_bindings(blueprint_package_path_filter)
 
     @staticmethod
     def wake_pie_actor_physics(*, actor_name):
@@ -4155,14 +4395,74 @@ class Perf:
     """Wraps unreal.UnrealBridgePerfLibrary (kwargs-only)."""
 
     @staticmethod
+    def clear_hitch_log():
+        """X.clear_hitch_log() -> None"""
+        return unreal.UnrealBridgePerfLibrary.clear_hitch_log()
+
+    @staticmethod
+    def export_perf_samples_to_csv(*, output_path):
+        """X.export_perf_samples_to_csv(output_path) -> bool"""
+        return unreal.UnrealBridgePerfLibrary.export_perf_samples_to_csv(output_path)
+
+    @staticmethod
+    def get_actor_render_cost(*, actor_path):
+        """X.get_actor_render_cost(actor_path) -> BridgeActorRenderCost"""
+        return unreal.UnrealBridgePerfLibrary.get_actor_render_cost(actor_path)
+
+    @staticmethod
+    def get_asset_size_top_n(*, class_filter, top_n=50):
+        """X.get_asset_size_top_n(class_filter, top_n=50) -> Array[BridgePerfBreakdownRow]"""
+        return unreal.UnrealBridgePerfLibrary.get_asset_size_top_n(class_filter, top_n)
+
+    @staticmethod
+    def get_audio_memory_breakdown(*, group_by="compression_format", mode="disk", max_groups=50):
+        """X.get_audio_memory_breakdown(group_by="compression_format", mode="disk", max_groups=50) -> Array[BridgePerfBreakdownRow]"""
+        return unreal.UnrealBridgePerfLibrary.get_audio_memory_breakdown(group_by, mode, max_groups)
+
+    @staticmethod
+    def get_frame_time_histogram(*, bucket_ms=5.000000, max_bucket_ms=100.000000):
+        """X.get_frame_time_histogram(bucket_ms=5.000000, max_bucket_ms=100.000000) -> Array[BridgeHistogramBucket]"""
+        return unreal.UnrealBridgePerfLibrary.get_frame_time_histogram(bucket_ms, max_bucket_ms)
+
+    @staticmethod
     def get_frame_timing():
         """X.get_frame_timing() -> BridgeFrameTiming"""
         return unreal.UnrealBridgePerfLibrary.get_frame_timing()
 
     @staticmethod
+    def get_hitch_log(*, threshold_ms=50.000000, max_entries=50):
+        """X.get_hitch_log(threshold_ms=50.000000, max_entries=50) -> Array[BridgeHitchEntry]"""
+        return unreal.UnrealBridgePerfLibrary.get_hitch_log(threshold_ms, max_entries)
+
+    @staticmethod
+    def get_lod_distribution(*, class_filter, actor_filter):
+        """X.get_lod_distribution(class_filter, actor_filter) -> Array[BridgePerfBreakdownRow]"""
+        return unreal.UnrealBridgePerfLibrary.get_lod_distribution(class_filter, actor_filter)
+
+    @staticmethod
+    def get_lumen_diagnostics():
+        """X.get_lumen_diagnostics() -> BridgeLumenDiagnostics"""
+        return unreal.UnrealBridgePerfLibrary.get_lumen_diagnostics()
+
+    @staticmethod
     def get_memory_stats():
         """X.get_memory_stats() -> BridgeMemoryStats"""
         return unreal.UnrealBridgePerfLibrary.get_memory_stats()
+
+    @staticmethod
+    def get_mesh_memory_breakdown(*, group_by, mesh_type="all", mode="disk", max_groups=50):
+        """X.get_mesh_memory_breakdown(group_by, mesh_type="all", mode="disk", max_groups=50) -> Array[BridgePerfBreakdownRow]"""
+        return unreal.UnrealBridgePerfLibrary.get_mesh_memory_breakdown(group_by, mesh_type, mode, max_groups)
+
+    @staticmethod
+    def get_nanite_stats():
+        """X.get_nanite_stats() -> BridgeNaniteStats"""
+        return unreal.UnrealBridgePerfLibrary.get_nanite_stats()
+
+    @staticmethod
+    def get_perf_sampling_state():
+        """X.get_perf_sampling_state() -> BridgePerfSamplingState"""
+        return unreal.UnrealBridgePerfLibrary.get_perf_sampling_state()
 
     @staticmethod
     def get_perf_snapshot(*, include_u_object_stats=False, u_object_top_n=20):
@@ -4175,9 +4475,69 @@ class Perf:
         return unreal.UnrealBridgePerfLibrary.get_render_counters()
 
     @staticmethod
+    def get_shadow_caster_breakdown(*, top_n=30):
+        """X.get_shadow_caster_breakdown(top_n=30) -> Array[BridgeActorRenderCost]"""
+        return unreal.UnrealBridgePerfLibrary.get_shadow_caster_breakdown(top_n)
+
+    @staticmethod
+    def get_texture_memory_breakdown(*, group_by, mode="disk", max_groups=50):
+        """X.get_texture_memory_breakdown(group_by, mode="disk", max_groups=50) -> Array[BridgePerfBreakdownRow]"""
+        return unreal.UnrealBridgePerfLibrary.get_texture_memory_breakdown(group_by, mode, max_groups)
+
+    @staticmethod
+    def get_trace_state():
+        """X.get_trace_state() -> BridgeTraceState"""
+        return unreal.UnrealBridgePerfLibrary.get_trace_state()
+
+    @staticmethod
+    def get_u_object_memory_breakdown(*, top_n=20):
+        """X.get_u_object_memory_breakdown(top_n=20) -> Array[BridgePerfBreakdownRow]"""
+        return unreal.UnrealBridgePerfLibrary.get_u_object_memory_breakdown(top_n)
+
+    @staticmethod
     def get_u_object_stats(*, top_n=20):
         """X.get_u_object_stats(top_n=20) -> BridgeUObjectStats"""
         return unreal.UnrealBridgePerfLibrary.get_u_object_stats(top_n)
+
+    @staticmethod
+    def get_visible_primitives_by_material(*, viewport_index=0, top_n=50):
+        """X.get_visible_primitives_by_material(viewport_index=0, top_n=50) -> Array[BridgeMaterialRenderRow]"""
+        return unreal.UnrealBridgePerfLibrary.get_visible_primitives_by_material(viewport_index, top_n)
+
+    @staticmethod
+    def get_world_actor_breakdown(*, level_filter, group_by="class", max_groups=200):
+        """X.get_world_actor_breakdown(level_filter, group_by="class", max_groups=200) -> Array[BridgePerfBreakdownRow]"""
+        return unreal.UnrealBridgePerfLibrary.get_world_actor_breakdown(level_filter, group_by, max_groups)
+
+    @staticmethod
+    def list_trace_channels():
+        """X.list_trace_channels() -> Array[BridgeTraceChannelInfo]"""
+        return unreal.UnrealBridgePerfLibrary.list_trace_channels()
+
+    @staticmethod
+    def reset_frame_time_histogram():
+        """X.reset_frame_time_histogram() -> None"""
+        return unreal.UnrealBridgePerfLibrary.reset_frame_time_histogram()
+
+    @staticmethod
+    def start_perf_sampling(*, period_ms=100, max_samples=600, include_u_object_stats=False):
+        """X.start_perf_sampling(period_ms=100, max_samples=600, include_u_object_stats=False) -> bool"""
+        return unreal.UnrealBridgePerfLibrary.start_perf_sampling(period_ms, max_samples, include_u_object_stats)
+
+    @staticmethod
+    def start_trace_capture(*, channels, output_dir, max_size_mb=500):
+        """X.start_trace_capture(channels, output_dir, max_size_mb=500) -> BridgeTraceStartResult"""
+        return unreal.UnrealBridgePerfLibrary.start_trace_capture(channels, output_dir, max_size_mb)
+
+    @staticmethod
+    def stop_perf_sampling():
+        """X.stop_perf_sampling() -> Array[BridgePerfSnapshot]"""
+        return unreal.UnrealBridgePerfLibrary.stop_perf_sampling()
+
+    @staticmethod
+    def stop_trace_capture():
+        """X.stop_trace_capture() -> BridgeTraceStopResult"""
+        return unreal.UnrealBridgePerfLibrary.stop_trace_capture()
 
 
 class PoseSearch:
@@ -4272,6 +4632,125 @@ class PoseSearch:
     def set_database_blend_space_sampling(*, database_path, index, h_samples, v_samples, use_grid_for_sampling, use_single_sample, blend_param_x, blend_param_y):
         """X.set_database_blend_space_sampling(database_path, index, h_samples, v_samples, use_grid_for_sampling, use_single_sample, blend_param_x, blend_param_y) -> bool"""
         return unreal.UnrealBridgePoseSearchLibrary.set_database_blend_space_sampling(database_path, index, h_samples, v_samples, use_grid_for_sampling, use_single_sample, blend_param_x, blend_param_y)
+
+
+class Procedural:
+    """Wraps unreal.UnrealBridgeProceduralLibrary (kwargs-only)."""
+
+    @staticmethod
+    def add_instances_by_transforms(*, actor_name, xs, world_space):
+        """X.add_instances_by_transforms(actor_name, xs, world_space) -> Array[int32]"""
+        return unreal.UnrealBridgeProceduralLibrary.add_instances_by_transforms(actor_name, xs, world_space)
+
+    @staticmethod
+    def clear_instances(*, actor_name):
+        """X.clear_instances(actor_name) -> bool"""
+        return unreal.UnrealBridgeProceduralLibrary.clear_instances(actor_name)
+
+    @staticmethod
+    def ensure_procedural_ism_actor(*, tag, mesh_path, use_hism):
+        """X.ensure_procedural_ism_actor(tag, mesh_path, use_hism) -> str"""
+        return unreal.UnrealBridgeProceduralLibrary.ensure_procedural_ism_actor(tag, mesh_path, use_hism)
+
+    @staticmethod
+    def filter_points_by_density_mask(*, pts, texture_asset, bounds_xy, channel_index, threshold, seed):
+        """X.filter_points_by_density_mask(pts, texture_asset, bounds_xy, channel_index, threshold, seed) -> Array[Vector]"""
+        return unreal.UnrealBridgeProceduralLibrary.filter_points_by_density_mask(pts, texture_asset, bounds_xy, channel_index, threshold, seed)
+
+    @staticmethod
+    def filter_points_by_landscape_layer(*, pts, landscape_label, layer_name, threshold):
+        """X.filter_points_by_landscape_layer(pts, landscape_label, layer_name, threshold) -> Array[Vector]"""
+        return unreal.UnrealBridgeProceduralLibrary.filter_points_by_landscape_layer(pts, landscape_label, layer_name, threshold)
+
+    @staticmethod
+    def filter_points_by_min_distance(*, in_, min_dist):
+        """X.filter_points_by_min_distance(in_, min_dist) -> Array[Vector]"""
+        return unreal.UnrealBridgeProceduralLibrary.filter_points_by_min_distance(in_, min_dist)
+
+    @staticmethod
+    def filter_points_by_overlap(*, pts, blocking_class_paths, radius):
+        """X.filter_points_by_overlap(pts, blocking_class_paths, radius) -> Array[Vector]"""
+        return unreal.UnrealBridgeProceduralLibrary.filter_points_by_overlap(pts, blocking_class_paths, radius)
+
+    @staticmethod
+    def filter_points_by_slope(*, in_, max_slope_deg, bounce_up):
+        """X.filter_points_by_slope(in_, max_slope_deg, bounce_up) -> Array[Vector]"""
+        return unreal.UnrealBridgeProceduralLibrary.filter_points_by_slope(in_, max_slope_deg, bounce_up)
+
+    @staticmethod
+    def filter_points_inside_actor(*, pts, container_actor_label, inside):
+        """X.filter_points_inside_actor(pts, container_actor_label, inside) -> Array[Vector]"""
+        return unreal.UnrealBridgeProceduralLibrary.filter_points_inside_actor(pts, container_actor_label, inside)
+
+    @staticmethod
+    def jitter_transforms(*, xs, pos_sigma, rot_sigma, scale_min, scale_max, seed):
+        """X.jitter_transforms(xs, pos_sigma, rot_sigma, scale_min, scale_max, seed) -> Array[Transform]"""
+        return unreal.UnrealBridgeProceduralLibrary.jitter_transforms(xs, pos_sigma, rot_sigma, scale_min, scale_max, seed)
+
+    @staticmethod
+    def project_points_to_surface(*, in_, bounce_up, bounce_down):
+        """X.project_points_to_surface(in_, bounce_up, bounce_down) -> (Array[Vector], out_hit_normals=Array[Vector])"""
+        return unreal.UnrealBridgeProceduralLibrary.project_points_to_surface(in_, bounce_up, bounce_down)
+
+    @staticmethod
+    def rebuild_procedural_navigation(*, actor_name):
+        """X.rebuild_procedural_navigation(actor_name) -> bool"""
+        return unreal.UnrealBridgeProceduralLibrary.rebuild_procedural_navigation(actor_name)
+
+    @staticmethod
+    def remove_instances_by_ids(*, actor_name, instance_ids):
+        """X.remove_instances_by_ids(actor_name, instance_ids) -> bool"""
+        return unreal.UnrealBridgeProceduralLibrary.remove_instances_by_ids(actor_name, instance_ids)
+
+    @staticmethod
+    def sample_points_grid(*, bounds, spacing, jitter_ratio, seed):
+        """X.sample_points_grid(bounds, spacing, jitter_ratio, seed) -> Array[Vector]"""
+        return unreal.UnrealBridgeProceduralLibrary.sample_points_grid(bounds, spacing, jitter_ratio, seed)
+
+    @staticmethod
+    def sample_points_in_volume(*, volume_actor_label, count, seed, max_attempts):
+        """X.sample_points_in_volume(volume_actor_label, count, seed, max_attempts) -> Array[Vector]"""
+        return unreal.UnrealBridgeProceduralLibrary.sample_points_in_volume(volume_actor_label, count, seed, max_attempts)
+
+    @staticmethod
+    def sample_points_jitter_stratified(*, bounds, grid_resolution, seed):
+        """X.sample_points_jitter_stratified(bounds, grid_resolution, seed) -> Array[Vector]"""
+        return unreal.UnrealBridgeProceduralLibrary.sample_points_jitter_stratified(bounds, grid_resolution, seed)
+
+    @staticmethod
+    def sample_points_on_landscape(*, landscape_label, bounds2d, count, seed):
+        """X.sample_points_on_landscape(landscape_label, bounds2d, count, seed) -> Array[Vector]"""
+        return unreal.UnrealBridgeProceduralLibrary.sample_points_on_landscape(landscape_label, bounds2d, count, seed)
+
+    @staticmethod
+    def sample_points_on_spline(*, spline_actor_label, component_name, mode, count_or_spacing):
+        """X.sample_points_on_spline(spline_actor_label, component_name, mode, count_or_spacing) -> Array[Vector]"""
+        return unreal.UnrealBridgeProceduralLibrary.sample_points_on_spline(spline_actor_label, component_name, mode, count_or_spacing)
+
+    @staticmethod
+    def sample_points_on_surface(*, actor_label, count, seed, max_bounce_up):
+        """X.sample_points_on_surface(actor_label, count, seed, max_bounce_up) -> Array[Vector]"""
+        return unreal.UnrealBridgeProceduralLibrary.sample_points_on_surface(actor_label, count, seed, max_bounce_up)
+
+    @staticmethod
+    def sample_points_poisson_disk2d(*, bounds, min_radius, max_attempts, seed):
+        """X.sample_points_poisson_disk2d(bounds, min_radius, max_attempts, seed) -> Array[Vector]"""
+        return unreal.UnrealBridgeProceduralLibrary.sample_points_poisson_disk2d(bounds, min_radius, max_attempts, seed)
+
+    @staticmethod
+    def sample_points_poisson_disk3d(*, bounds, min_radius, max_attempts, seed):
+        """X.sample_points_poisson_disk3d(bounds, min_radius, max_attempts, seed) -> Array[Vector]"""
+        return unreal.UnrealBridgeProceduralLibrary.sample_points_poisson_disk3d(bounds, min_radius, max_attempts, seed)
+
+    @staticmethod
+    def sample_transforms_along_spline(*, spline_actor_label, component_name, mode, count_or_spacing):
+        """X.sample_transforms_along_spline(spline_actor_label, component_name, mode, count_or_spacing) -> Array[Transform]"""
+        return unreal.UnrealBridgeProceduralLibrary.sample_transforms_along_spline(spline_actor_label, component_name, mode, count_or_spacing)
+
+    @staticmethod
+    def update_instance_transforms_by_ids(*, actor_name, ids, new_xs, world_space):
+        """X.update_instance_transforms_by_ids(actor_name, ids, new_xs, world_space) -> bool"""
+        return unreal.UnrealBridgeProceduralLibrary.update_instance_transforms_by_ids(actor_name, ids, new_xs, world_space)
 
 
 class Property:

@@ -14,7 +14,7 @@ For tag hierarchy navigation (`find_child_tags` / `get_tag_parents`), also see `
 
 ---
 
-## find_assets_referencing_tag(tag_string, b_include_children, package_path_filter, max_results) -> list[str]
+## find_assets_referencing_tag(tag_string, include_children, package_path_filter, max_results) -> list[str]
 
 Find every asset that references a GameplayTag — the programmatic equivalent of the editor's right-click → "Search for References" on a tag.
 
@@ -36,7 +36,7 @@ Parameters:
 | name | meaning |
 |---|---|
 | `tag_string` | Full tag, e.g. `'Combat.Hit'`. |
-| `b_include_children` | When `True`, walks the tag tree via `UGameplayTagsManager.RequestGameplayTagChildren` and unions results. When `False`, queries only the exact tag. |
+| `include_children` | When `True`, walks the tag tree via `UGameplayTagsManager.RequestGameplayTagChildren` and unions results. When `False`, queries only the exact tag. |
 | `package_path_filter` | Empty = no filter. Otherwise only return packages whose path starts with this — e.g. `'/Game'` to exclude engine + plugins. |
 | `max_results` | `0` = unlimited. |
 

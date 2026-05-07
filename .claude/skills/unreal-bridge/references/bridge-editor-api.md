@@ -37,7 +37,7 @@ Snapshot of the current editor session.
 ```python
 s = unreal.UnrealBridgeEditorLibrary.get_editor_state()
 print(f'{s.project_name} on UE {s.engine_version}')
-print(f'PIE={s.b_is_pie} paused={s.b_is_paused} level={s.current_level_path}')
+print(f'PIE={s.is_pie} paused={s.is_paused} level={s.current_level_path}')
 print(f'opened={s.num_opened_assets} selectedActors={s.num_selected_actors} cbSel={s.num_content_browser_selection}')
 ```
 
@@ -47,8 +47,8 @@ print(f'opened={s.num_opened_assets} selectedActors={s.num_selected_actors} cbSe
 |-------|------|-------------|
 | `engine_version` | str | Engine version string |
 | `project_name` | str | Project name |
-| `b_is_pie` | bool | PIE is active |
-| `b_is_paused` | bool | PIE is paused |
+| `is_pie` | bool | PIE is active |
+| `is_paused` | bool | PIE is paused |
 | `current_level_path` | str | Persistent level package path |
 | `num_opened_assets` | int | Count of open asset editors |
 | `num_selected_actors` | int | Count of selected actors in the world |
@@ -64,7 +64,7 @@ print(f'opened={s.num_opened_assets} selectedActors={s.num_selected_actors} cbSe
 
 ```python
 for a in unreal.UnrealBridgeEditorLibrary.get_opened_assets():
-    dirty = '*' if a.b_is_dirty else ''
+    dirty = '*' if a.is_dirty else ''
     print(f'[{a.class_name}] {a.path}{dirty}')
 ```
 
@@ -74,7 +74,7 @@ for a in unreal.UnrealBridgeEditorLibrary.get_opened_assets():
 |-------|------|-------------|
 | `path` | str | Asset object path |
 | `class_name` | str | Asset class short name |
-| `b_is_dirty` | bool | Has unsaved changes |
+| `is_dirty` | bool | Has unsaved changes |
 
 ---
 
@@ -136,14 +136,14 @@ Asynchronous — the file appears 1–2 frames later. Use `capture_active_viewpo
 unreal.UnrealBridgeEditorLibrary.take_high_res_screenshot(2.0)  # 2x native
 ```
 
-### capture_active_viewport(out_file_path, b_include_base64) -> FBridgeScreenshotResult
+### capture_active_viewport(out_file_path, include_base64) -> FBridgeScreenshotResult
 
 **Synchronous** viewport capture → PNG on disk and/or base64. Picks the PIE game viewport when PIE is running, otherwise the active level editor viewport. Runs a `Draw()` + `ReadPixels` round-trip on the game thread.
 
 | Param | Type | Notes |
 |-------|------|-------|
-| `out_file_path` | str | Absolute path to the PNG. Pass `""` to skip disk (requires `b_include_base64=True`). Parent dirs are created. |
-| `b_include_base64` | bool | When True, returns the compressed PNG as base64 so callers can read pixels without touching the filesystem. Adds ~33% payload size. |
+| `out_file_path` | str | Absolute path to the PNG. Pass `""` to skip disk (requires `include_base64=True`). Parent dirs are created. |
+| `include_base64` | bool | When True, returns the compressed PNG as base64 so callers can read pixels without touching the filesystem. Adds ~33% payload size. |
 
 FBridgeScreenshotResult fields (UE Python strips the `b` prefix from bool fields):
 
@@ -153,7 +153,7 @@ FBridgeScreenshotResult fields (UE Python strips the `b` prefix from bool fields
 | `file_path` | str | Absolute path written (empty when `out_file_path` was empty). |
 | `width` / `height` | int | Captured pixel dimensions. |
 | `source` | str | Which viewport produced the capture: `"LevelEditor"` / `"PIE"` / `""`. |
-| `base64` | str | Base64 PNG bytes (empty unless `b_include_base64=True`). |
+| `base64` | str | Base64 PNG bytes (empty unless `include_base64=True`). |
 | `error` | str | Failure reason. Empty on success. |
 
 ```python
@@ -164,7 +164,7 @@ print(r.success, r.source, r.width, r.height, r.file_path)
 
 Tip: when the caller is Claude Code wanting to "see" the viewport, pass a disk path and then `Read` the PNG — cheaper and more reliable than round-tripping the bytes through base64.
 
-### capture_viewport_channel(channel, out_file_path, width, height, max_depth_clamp, b_include_base64) -> FBridgeChannelCaptureResult
+### capture_viewport_channel(channel, out_file_path, width, height, max_depth_clamp, include_base64) -> FBridgeChannelCaptureResult
 
 Synchronous GBuffer channel capture at the active editor viewport's pose. Unlike `capture_active_viewport` (final color only), this goes through a transient `ASceneCapture2D` + `UTextureRenderTarget2D` so you can read individual GBuffer channels — depth, world normals, albedo — for quantitative analysis.
 
@@ -174,7 +174,7 @@ Synchronous GBuffer channel capture at the active editor viewport's pose. Unlike
 | `out_file_path` | str | Absolute path (parent dirs auto-created). Pass `""` to skip disk. |
 | `width` / `height` | int | Capture resolution. `0` = viewport native size. |
 | `max_depth_clamp` | float | **Depth-only**: clamp values to this max before mapping to 16-bit PNG. `0.0` = no clamp (sky saturates at fp16 ∞ ≈ 65504 and squashes foreground). Typical: `10000` (100 m) for outdoor scenes. Ignored for non-depth channels. |
-| `b_include_base64` | bool | Return compressed bytes as base64. |
+| `include_base64` | bool | Return compressed bytes as base64. |
 
 Channels explained:
 
@@ -215,7 +215,7 @@ r = unreal.UnrealBridgeEditorLibrary.capture_viewport_channel(
 
 **`capture_viewport_channel` during PIE is broken** — it reads the active editor viewport's pose, which is *not* the player camera. The PIE player lives in `GameViewport->Viewport`, not `FLevelEditorViewportClient`. During Immersive PIE the editor viewport client may be dormant entirely. For PIE captures use `capture_channel_from_pose` with an explicit player-camera pose (see below).
 
-### capture_channel_from_pose(channel, location, rotation, fov, width, height, max_depth_clamp, out_file_path, b_include_base64) -> FBridgeChannelCaptureResult
+### capture_channel_from_pose(channel, location, rotation, fov, width, height, max_depth_clamp, out_file_path, include_base64) -> FBridgeChannelCaptureResult
 
 Same GBuffer channel capture as `capture_viewport_channel`, but takes an explicit camera pose instead of reading the active viewport. **This is the PIE-compatible path** — pair with `UnrealBridgeGameplayLibrary` to grab the player's camera and capture Depth / Normal / BaseColor from the player's perspective at runtime.
 
@@ -230,7 +230,7 @@ Uses PIE world when PIE is active, editor world otherwise. No dependence on `FLe
 | `width` / `height` | int | Pixel resolution. `<= 0` falls back to the active editor viewport size if available, else 1920×1080. |
 | `max_depth_clamp` | float | Depth channels only; see `capture_viewport_channel`. |
 | `out_file_path` | str | Absolute path. `""` = skip disk. |
-| `b_include_base64` | bool | |
+| `include_base64` | bool | |
 
 ```python
 # Full "agent sees what the player sees" pipeline during PIE:
@@ -249,7 +249,7 @@ Note on `get_camera_view_point()`: UE Python absorbs the C++ `bool` return of "f
 
 FOV is whatever the player camera reports (often project-default 80°, not 90°). If you want a fixed FOV regardless of the player's setup, pass it explicitly instead of using `get_camera_fov()`.
 
-### capture_viewport_hit_proxy_map(out_file_path, b_include_base64) -> FBridgeScreenshotResult
+### capture_viewport_hit_proxy_map(out_file_path, include_base64) -> FBridgeScreenshotResult
 
 Per-pixel actor-ID pass. Uses the **editor viewport's HitProxy cache** (the same mechanism click-to-select uses), so every pixel resolves to an exact `AActor*`. Distinct actors get distinct colors (deterministic via golden-angle hue stepping). Black pixels = no actor (sky / empty).
 
@@ -344,11 +344,11 @@ batching via `exec-file` if toggling many flags.
 
 ## Editor UX + plugin introspection
 
-### show_editor_notification(message, duration_seconds=4.0, b_success=True) -> bool
+### show_editor_notification(message, duration_seconds=4.0, success=True) -> bool
 
 Show a Slate toast (lower-right of the editor window) for long-running
 automation scripts. `duration_seconds` is clamped to `[1, 60]`. The
-`b_success` flag selects the icon — green checkmark when `True`, red X
+`success` flag selects the icon — green checkmark when `True`, red X
 when `False`; use the failure style sparingly, it's loud.
 
 ```python
@@ -438,9 +438,9 @@ Seconds since `GStartTime` (engine init complete). Useful for gating
 early automation — e.g. skip expensive work during the first 30 s
 while the editor is still loading shaders.
 
-### trigger_garbage_collection(b_full_purge=False) -> bool
+### trigger_garbage_collection(full_purge=False) -> bool
 
-Force a GC pass. `b_full_purge=False` runs an incremental collection
+Force a GC pass. `full_purge=False` runs an incremental collection
 (fast, default). `True` runs the full purge — slow, compacts the pool,
 blocks the game thread for up to several seconds on a large project.
 
@@ -1056,7 +1056,7 @@ Compile the listed Blueprints. Returns per-BP success + error summary.
 ```python
 results = unreal.UnrealBridgeEditorLibrary.compile_blueprints(['/Game/BP/BP_Hero', '/Game/BP/BP_Enemy'])
 for r in results:
-    ok = 'OK' if r.b_success else 'FAIL'
+    ok = 'OK' if r.success else 'FAIL'
     print(f'[{ok}] {r.path} {r.error_message}')
 ```
 
@@ -1065,7 +1065,7 @@ for r in results:
 | Field | Type | Description |
 |-------|------|-------------|
 | `path` | str | Blueprint path |
-| `b_success` | bool | Compile succeeded |
+| `success` | bool | Compile succeeded |
 | `error_message` | str | Error summary (empty on success) |
 
 ---
@@ -1091,20 +1091,20 @@ True when the LiveCoding module is loaded AND enabled for this session.
 
 True while an LC compile is running in the background.
 
-### trigger_live_coding_compile(b_wait_for_completion) -> FBridgeLiveCodingResult
+### trigger_live_coding_compile(wait_for_completion) -> FBridgeLiveCodingResult
 
 Kick a Live Coding compile. Auto-enables LC for the session if the module is loaded but disabled.
 
 | Param | Type | Notes |
 |-------|------|-------|
-| `b_wait_for_completion` | bool | When True, the engine blocks the game thread (pumps a modal loop) until the compile finishes. False returns immediately with `Status="InProgress"` — poll `is_live_coding_compiling()`. |
+| `wait_for_completion` | bool | When True, the engine blocks the game thread (pumps a modal loop) until the compile finishes. False returns immediately with `Status="InProgress"` — poll `is_live_coding_compiling()`. |
 
 FBridgeLiveCodingResult fields (UE Python strips the `b` prefix from bool fields):
 
 | Field | Type | Description |
 |-------|------|-------------|
 | `triggered` | bool | Compile request was accepted. False means another LC compile is already in flight or the module isn't ready. |
-| `completed` | bool | Only true when `b_wait_for_completion=True` AND status is `Success` or `NoChanges`. |
+| `completed` | bool | Only true when `wait_for_completion=True` AND status is `Success` or `NoChanges`. |
 | `status` | str | `Success` / `NoChanges` / `InProgress` / `CompileStillActive` / `NotStarted` / `Failure` / `Cancelled` / `Unavailable`. |
 | `error` | str | Human-readable failure detail. Empty on success. |
 

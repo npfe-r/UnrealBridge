@@ -12,7 +12,7 @@ Return a compact summary of the current editor world.
 
 ```python
 s = unreal.UnrealBridgeLevelLibrary.get_level_summary()
-print(f'{s.level_name} [{s.world_type}] actors={s.num_actors} streaming={s.num_streaming_levels} WP={s.b_world_partition}')
+print(f'{s.level_name} [{s.world_type}] actors={s.num_actors} streaming={s.num_streaming_levels} WP={s.world_partition}')
 ```
 
 ### FBridgeLevelSummary fields
@@ -24,7 +24,7 @@ print(f'{s.level_name} [{s.world_type}] actors={s.num_actors} streaming={s.num_s
 | `num_actors` | int | Total actors in the world |
 | `num_streaming_levels` | int | Number of streaming levels |
 | `world_type` | str | "Editor", "PIE", "Game" |
-| `b_world_partition` | bool | True if this is a World Partition map |
+| `world_partition` | bool | True if this is a World Partition map |
 
 ### get_current_level_path() -> str
 
@@ -39,8 +39,8 @@ List streaming sublevels with load/visible flags.
 | Field | Type | Description |
 |-------|------|-------------|
 | `package_name` | str | Sublevel package name |
-| `b_loaded` | bool | Currently loaded |
-| `b_visible` | bool | Currently visible |
+| `loaded` | bool | Currently loaded |
+| `visible` | bool | Currently visible |
 
 ### set_streaming_level_loaded(package_name, loaded) -> bool
 
@@ -445,7 +445,7 @@ for a in briefs:
 | `class_name` | str | Actor class short name |
 | `location` | Vector | World location |
 | `tags` | list[str] | Actor tags |
-| `b_hidden` | bool | Hidden in editor |
+| `hidden` | bool | Hidden in editor |
 
 ### find_actors_by_class(class_path, max_results) -> list[str]
 
@@ -507,8 +507,8 @@ for c in info.components:
 | `attached_to` | str | Parent actor name (empty if detached) |
 | `children` | list[str] | Attached child actor names |
 | `components` | list[FBridgeLevelComponentInfo] | Components |
-| `b_hidden` | bool | Hidden in editor |
-| `b_hidden_in_game` | bool | Hidden at runtime |
+| `hidden` | bool | Hidden in editor |
+| `hidden_in_game` | bool | Hidden at runtime |
 
 ### FBridgeTransform fields
 

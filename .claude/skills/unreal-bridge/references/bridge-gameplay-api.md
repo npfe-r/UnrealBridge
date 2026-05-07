@@ -18,9 +18,9 @@ Assemble a full snapshot of the player pawn's perceptible world in one call.
 - `class_filter` (str, default ""): case-insensitive substring match on the actor's class name. Empty = no class filter.
 
 **Returns** — `FAgentObservation` struct:
-- `b_valid` (bool): False if PIE isn't running or there's no player pawn yet.
+- `valid` (bool): False if PIE isn't running or there's no player pawn yet.
 - `pawn_location` (Vector), `pawn_rotation` (Rotator), `pawn_velocity` (Vector)
-- `b_on_ground` (bool): False when the character is falling (via UCharacterMovementComponent::IsFalling); True for non-Character pawns.
+- `on_ground` (bool): False when the character is falling (via UCharacterMovementComponent::IsFalling); True for non-Character pawns.
 - `camera_location` (Vector), `camera_forward` (Vector)
 - `visible_actors` (array of `FAgentVisibleActor`): sorted by distance ascending. Each entry carries `actor_name` (FName), `class_name` (str), `location` (Vector), `distance` (float cm), `tags` (array of FName).
 
@@ -38,15 +38,15 @@ obs = unreal.UnrealBridgeGameplayLibrary.get_agent_observation(
     require_line_of_sight=True,
     class_filter='Character',
 )
-if obs.b_valid:
-    print(f'self@{obs.pawn_location} hp=ground={obs.b_on_ground}')
+if obs.valid:
+    print(f'self@{obs.pawn_location} hp=ground={obs.on_ground}')
     for a in obs.visible_actors:
         print(f'  {a.class_name} {a.actor_name} dist={a.distance:.0f}')
 ```
 
 **Pitfalls**
-- Outside PIE returns `b_valid=False` (won't raise).
-- `b_on_ground` is always True for non-ACharacter pawns — the `IsFalling()` check doesn't apply to raw APawn / APawn-derived vehicles.
+- Outside PIE returns `valid=False` (won't raise).
+- `on_ground` is always True for non-ACharacter pawns — the `IsFalling()` check doesn't apply to raw APawn / APawn-derived vehicles.
 - `class_name` is the UClass short name (e.g. `BP_PlayerCharacter_C`), not a path. Use a prefix like `class_filter='zombie'` to scope.
 
 ---
@@ -132,7 +132,7 @@ contains no reachable points.
 
 ```python
 obs = unreal.UnrealBridgeGameplayLibrary.get_agent_observation()
-if obs.b_valid:
+if obs.valid:
     wander = unreal.UnrealBridgeGameplayLibrary.get_random_reachable_point_in_radius(
         obs.pawn_location, 1500.0)
 ```
@@ -558,9 +558,9 @@ physics simulation enabled — see
 `bridge-level-api.set_actor_simulate_physics`. Non-PIE calls and
 missing actors return `False` / `None`.
 
-### add_impulse_to_pie_actor(actor_name, impulse, b_velocity_change=False) -> bool
+### add_impulse_to_pie_actor(actor_name, impulse, velocity_change=False) -> bool
 
-Apply an instantaneous impulse in kg·cm/s. `b_velocity_change=True`
+Apply an instantaneous impulse in kg·cm/s. `velocity_change=True`
 treats `impulse` as a delta-velocity (ignores mass).
 
 ### add_force_to_pie_actor(actor_name, force) -> bool
@@ -778,7 +778,7 @@ to the current tick's input and is then consumed by the movement component.
 A Python agent should call these once per tick for continuous behaviour. If
 the agent stops calling them, the pawn decelerates on the next frame.
 
-### apply_movement_input(world_direction, scale_value=1.0, b_force=False) -> bool
+### apply_movement_input(world_direction, scale_value=1.0, force=False) -> bool
 
 Wraps `APawn::AddMovementInput`. Direction is world-space; magnitude is
 ignored (UE normalises). Scale in `[-1, 1]` flips and scales the input.
@@ -1175,16 +1175,16 @@ elif h > 200:
 
 ---
 
-### teleport_pawn(new_location, new_rotation, b_snap_controller=True, b_stop_velocity=True) -> bool
+### teleport_pawn(new_location, new_rotation, snap_controller=True, stop_velocity=True) -> bool
 
 Hard-reset the pawn's pose for scenario setup. Wraps
 `SetActorLocationAndRotation(..., ETeleportType::TeleportPhysics)` and
 optionally stops movement + snaps the controller rotation to match.
 
-- `b_snap_controller=True` (default): also set the player controller's
+- `snap_controller=True` (default): also set the player controller's
   rotation. Keeps `apply_movement_input(forward)` intuitive post-teleport.
   Set False if the camera/controller should retain its existing aim.
-- `b_stop_velocity=True` (default): call `StopMovementImmediately` on
+- `stop_velocity=True` (default): call `StopMovementImmediately` on
   the movement component so the character doesn't slide past the target
   on the next physics tick. Set False to preserve momentum (e.g. to
   launch from a moving state into a new pose).
@@ -1194,8 +1194,8 @@ import unreal
 ok = unreal.UnrealBridgeGameplayLibrary.teleport_pawn(
     new_location=unreal.Vector(500, 0, 100),
     new_rotation=unreal.Rotator(0, 0, 0),
-    b_snap_controller=True,
-    b_stop_velocity=True,
+    snap_controller=True,
+    stop_velocity=True,
 )
 ```
 
@@ -1226,8 +1226,8 @@ Returns a 9-tuple:
  capsule_radius,        # cm — half-width of the collision capsule
  capsule_half_height,   # cm — half-height standing up
  crouched_half_height,  # cm — half-height while crouched
- b_can_crouch,          # bool — movement mode allows crouch
- b_can_jump)            # bool — NavAgentProps.bCanJump
+ can_crouch,          # bool — movement mode allows crouch
+ can_jump)            # bool — NavAgentProps.bCanJump
 ```
 
 ```python
@@ -1295,7 +1295,7 @@ produce no effect because no IMC is listening.
 gameplay IMCs. If none are active while PIE is running, a blocking UI
 is open.
 
-### press_key(key_name, b_pressed) -> bool
+### press_key(key_name, pressed) -> bool
 
 Inject a key event directly into `FSlateApplication`, bypassing
 Enhanced Input entirely. The event reaches whatever Slate widget
@@ -1304,7 +1304,7 @@ currently has focus (UMG menus, CommonUI navigation, etc.).
 **Parameters**
 - `key_name` (str): UE `FKey` name — any string accepted by the
   `FKey(FName)` constructor.
-- `b_pressed` (bool, default True): True = key down, False = key up.
+- `pressed` (bool, default True): True = key down, False = key up.
 
 **Returns** True if the event was dispatched.
 

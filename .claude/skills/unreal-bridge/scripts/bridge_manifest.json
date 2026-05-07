@@ -31,7 +31,7 @@
       "TIMER"
     ]
   },
-  "generated_at": "2026-05-04T17:35:05+00:00",
+  "generated_at": "2026-05-07T17:14:06+00:00",
   "libraries": {
     "UnrealBridgeAnimLibrary": {
       "functions": {
@@ -2886,6 +2886,42 @@
           ],
           "returns": "str"
         },
+        "add_enhanced_input_action_event_node": {
+          "doc": "X.add_enhanced_input_action_event_node(blueprint_path, graph_name, input_action_path, node_pos_x, node_pos_y) -> str",
+          "params": [
+            {
+              "default": null,
+              "has_default": false,
+              "name": "blueprint_path",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "graph_name",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "input_action_path",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "node_pos_x",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "node_pos_y",
+              "type": ""
+            }
+          ],
+          "returns": "str"
+        },
         "add_enum_literal_node": {
           "doc": "X.add_enum_literal_node(blueprint_path, graph_name, enum_path, value_name, node_pos_x, node_pos_y) -> str",
           "params": [
@@ -3174,6 +3210,114 @@
           ],
           "returns": "bool"
         },
+        "add_get_input_action_value_node": {
+          "doc": "X.add_get_input_action_value_node(blueprint_path, graph_name, input_action_path, node_pos_x, node_pos_y) -> str",
+          "params": [
+            {
+              "default": null,
+              "has_default": false,
+              "name": "blueprint_path",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "graph_name",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "input_action_path",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "node_pos_x",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "node_pos_y",
+              "type": ""
+            }
+          ],
+          "returns": "str"
+        },
+        "add_input_axis_key_event_node": {
+          "doc": "X.add_input_axis_key_event_node(blueprint_path, graph_name, axis_key_name, node_pos_x, node_pos_y) -> str",
+          "params": [
+            {
+              "default": null,
+              "has_default": false,
+              "name": "blueprint_path",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "graph_name",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "axis_key_name",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "node_pos_x",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "node_pos_y",
+              "type": ""
+            }
+          ],
+          "returns": "str"
+        },
+        "add_input_key_event_node": {
+          "doc": "X.add_input_key_event_node(blueprint_path, graph_name, key_name, node_pos_x, node_pos_y) -> str",
+          "params": [
+            {
+              "default": null,
+              "has_default": false,
+              "name": "blueprint_path",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "graph_name",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "key_name",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "node_pos_x",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "node_pos_y",
+              "type": ""
+            }
+          ],
+          "returns": "str"
+        },
         "add_interface_message_node": {
           "doc": "X.add_interface_message_node(blueprint_path, graph_name, interface_path, function_name, node_pos_x, node_pos_y) -> str",
           "params": [
@@ -3199,6 +3343,78 @@
               "default": null,
               "has_default": false,
               "name": "function_name",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "node_pos_x",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "node_pos_y",
+              "type": ""
+            }
+          ],
+          "returns": "str"
+        },
+        "add_legacy_input_action_event_node": {
+          "doc": "X.add_legacy_input_action_event_node(blueprint_path, graph_name, action_name, node_pos_x, node_pos_y) -> str",
+          "params": [
+            {
+              "default": null,
+              "has_default": false,
+              "name": "blueprint_path",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "graph_name",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "action_name",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "node_pos_x",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "node_pos_y",
+              "type": ""
+            }
+          ],
+          "returns": "str"
+        },
+        "add_legacy_input_axis_event_node": {
+          "doc": "X.add_legacy_input_axis_event_node(blueprint_path, graph_name, axis_name, node_pos_x, node_pos_y) -> str",
+          "params": [
+            {
+              "default": null,
+              "has_default": false,
+              "name": "blueprint_path",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "graph_name",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "axis_name",
               "type": ""
             },
             {
@@ -3359,6 +3575,42 @@
             }
           ],
           "returns": "str"
+        },
+        "add_pawn_input_begin_play_setup": {
+          "doc": "X.add_pawn_input_begin_play_setup(blueprint_path, imc_path, priority, origin_x, origin_y) -> bool",
+          "params": [
+            {
+              "default": null,
+              "has_default": false,
+              "name": "blueprint_path",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "imc_path",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "priority",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "origin_x",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "origin_y",
+              "type": ""
+            }
+          ],
+          "returns": "bool"
         },
         "add_reroute_node": {
           "doc": "X.add_reroute_node(blueprint_path, graph_name, x, y) -> str",
@@ -6202,6 +6454,78 @@
           ],
           "returns": "bool"
         },
+        "wire_enhanced_input_action_to_function": {
+          "doc": "X.wire_enhanced_input_action_to_function(blueprint_path, graph_name, input_action_path, trigger_event_pin, target_class_path, target_function_name, event_node_x, event_node_y, call_node_x, call_node_y, auto_wire_action_value=True) -> BridgeWireIAResult",
+          "params": [
+            {
+              "default": null,
+              "has_default": false,
+              "name": "blueprint_path",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "graph_name",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "input_action_path",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "trigger_event_pin",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "target_class_path",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "target_function_name",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "event_node_x",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "event_node_y",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "call_node_x",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "call_node_y",
+              "type": ""
+            },
+            {
+              "default": "True",
+              "has_default": true,
+              "name": "auto_wire_action_value",
+              "type": ""
+            }
+          ],
+          "returns": "BridgeWireIAResult"
+        },
         "wrap_nodes_in_comment_box": {
           "doc": "X.wrap_nodes_in_comment_box(blueprint_path, graph_name, node_guids, text) -> str",
           "params": [
@@ -7407,6 +7731,54 @@
           ],
           "returns": "int32"
         },
+        "create_data_table_from_csv": {
+          "doc": "X.create_data_table_from_csv(asset_path, row_struct_path, csv_content) -> BridgeDataTableImportResult",
+          "params": [
+            {
+              "default": null,
+              "has_default": false,
+              "name": "asset_path",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "row_struct_path",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "csv_content",
+              "type": ""
+            }
+          ],
+          "returns": "BridgeDataTableImportResult"
+        },
+        "create_data_table_from_json": {
+          "doc": "X.create_data_table_from_json(asset_path, row_struct_path, json_content) -> BridgeDataTableImportResult",
+          "params": [
+            {
+              "default": null,
+              "has_default": false,
+              "name": "asset_path",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "row_struct_path",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "json_content",
+              "type": ""
+            }
+          ],
+          "returns": "BridgeDataTableImportResult"
+        },
         "diff_data_table_rows": {
           "doc": "X.diff_data_table_rows(data_table_path_a, row_name_a, data_table_path_b, row_name_b) -> Array[str]",
           "params": [
@@ -7803,6 +8175,24 @@
           ],
           "returns": "bool"
         },
+        "import_data_table_from_csv_text": {
+          "doc": "X.import_data_table_from_csv_text(data_table_path, csv_content) -> BridgeDataTableImportResult",
+          "params": [
+            {
+              "default": null,
+              "has_default": false,
+              "name": "data_table_path",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "csv_content",
+              "type": ""
+            }
+          ],
+          "returns": "BridgeDataTableImportResult"
+        },
         "import_data_table_from_json": {
           "doc": "X.import_data_table_from_json(data_table_path, json_file_path) -> bool",
           "params": [
@@ -7820,6 +8210,24 @@
             }
           ],
           "returns": "bool"
+        },
+        "import_data_table_from_json_text": {
+          "doc": "X.import_data_table_from_json_text(data_table_path, json_content) -> BridgeDataTableImportResult",
+          "params": [
+            {
+              "default": null,
+              "has_default": false,
+              "name": "data_table_path",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "json_content",
+              "type": ""
+            }
+          ],
+          "returns": "BridgeDataTableImportResult"
         },
         "remove_data_table_row": {
           "doc": "X.remove_data_table_row(data_table_path, row_name) -> bool",
@@ -10243,6 +10651,30 @@
           ],
           "returns": "bool"
         },
+        "add_ia_mapping_to_imc": {
+          "doc": "X.add_ia_mapping_to_imc(mapping_context_path, input_action_path, key_name) -> bool",
+          "params": [
+            {
+              "default": null,
+              "has_default": false,
+              "name": "mapping_context_path",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "input_action_path",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "key_name",
+              "type": ""
+            }
+          ],
+          "returns": "bool"
+        },
         "add_impulse_to_pie_actor": {
           "doc": "X.add_impulse_to_pie_actor(actor_name, impulse, velocity_change=False) -> bool",
           "params": [
@@ -10267,6 +10699,72 @@
           ],
           "returns": "bool"
         },
+        "add_legacy_action_mapping": {
+          "doc": "X.add_legacy_action_mapping(mapping_name, key_name, shift=False, ctrl=False, alt=False, cmd=False) -> bool",
+          "params": [
+            {
+              "default": null,
+              "has_default": false,
+              "name": "mapping_name",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "key_name",
+              "type": ""
+            },
+            {
+              "default": "False",
+              "has_default": true,
+              "name": "shift",
+              "type": ""
+            },
+            {
+              "default": "False",
+              "has_default": true,
+              "name": "ctrl",
+              "type": ""
+            },
+            {
+              "default": "False",
+              "has_default": true,
+              "name": "alt",
+              "type": ""
+            },
+            {
+              "default": "False",
+              "has_default": true,
+              "name": "cmd",
+              "type": ""
+            }
+          ],
+          "returns": "bool"
+        },
+        "add_legacy_axis_mapping": {
+          "doc": "X.add_legacy_axis_mapping(mapping_name, key_name, scale=1.000000) -> bool",
+          "params": [
+            {
+              "default": null,
+              "has_default": false,
+              "name": "mapping_name",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "key_name",
+              "type": ""
+            },
+            {
+              "default": "1.000000",
+              "has_default": true,
+              "name": "scale",
+              "type": ""
+            }
+          ],
+          "returns": "bool"
+        },
         "add_mapping_context": {
           "doc": "X.add_mapping_context(mapping_context_path, priority=0) -> bool",
           "params": [
@@ -10284,6 +10782,78 @@
             }
           ],
           "returns": "bool"
+        },
+        "add_modifier_to_ia": {
+          "doc": "X.add_modifier_to_ia(input_action_path, modifier_class, params_json=\"{}\", save=True) -> int32",
+          "params": [
+            {
+              "default": null,
+              "has_default": false,
+              "name": "input_action_path",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "modifier_class",
+              "type": ""
+            },
+            {
+              "default": "\"{}\"",
+              "has_default": true,
+              "name": "params_json",
+              "type": ""
+            },
+            {
+              "default": "True",
+              "has_default": true,
+              "name": "save",
+              "type": ""
+            }
+          ],
+          "returns": "int32"
+        },
+        "add_modifier_to_imc_mapping": {
+          "doc": "X.add_modifier_to_imc_mapping(mapping_context_path, input_action_path, key_name, modifier_class, params_json=\"{}\", save=True) -> int32",
+          "params": [
+            {
+              "default": null,
+              "has_default": false,
+              "name": "mapping_context_path",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "input_action_path",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "key_name",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "modifier_class",
+              "type": ""
+            },
+            {
+              "default": "\"{}\"",
+              "has_default": true,
+              "name": "params_json",
+              "type": ""
+            },
+            {
+              "default": "True",
+              "has_default": true,
+              "name": "save",
+              "type": ""
+            }
+          ],
+          "returns": "int32"
         },
         "add_on_screen_debug_message": {
           "doc": "X.add_on_screen_debug_message(message, duration_seconds=4.000000, r=1.000000, g=1.000000, b=1.000000) -> bool",
@@ -10320,6 +10890,78 @@
             }
           ],
           "returns": "bool"
+        },
+        "add_trigger_to_ia": {
+          "doc": "X.add_trigger_to_ia(input_action_path, trigger_class, params_json=\"{}\", save=True) -> int32",
+          "params": [
+            {
+              "default": null,
+              "has_default": false,
+              "name": "input_action_path",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "trigger_class",
+              "type": ""
+            },
+            {
+              "default": "\"{}\"",
+              "has_default": true,
+              "name": "params_json",
+              "type": ""
+            },
+            {
+              "default": "True",
+              "has_default": true,
+              "name": "save",
+              "type": ""
+            }
+          ],
+          "returns": "int32"
+        },
+        "add_trigger_to_imc_mapping": {
+          "doc": "X.add_trigger_to_imc_mapping(mapping_context_path, input_action_path, key_name, trigger_class, params_json=\"{}\", save=True) -> int32",
+          "params": [
+            {
+              "default": null,
+              "has_default": false,
+              "name": "mapping_context_path",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "input_action_path",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "key_name",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "trigger_class",
+              "type": ""
+            },
+            {
+              "default": "\"{}\"",
+              "has_default": true,
+              "name": "params_json",
+              "type": ""
+            },
+            {
+              "default": "True",
+              "has_default": true,
+              "name": "save",
+              "type": ""
+            }
+          ],
+          "returns": "int32"
         },
         "apply_damage_to_actor": {
           "doc": "X.apply_damage_to_actor(target_actor_name, damage_amount) -> float",
@@ -10428,6 +11070,60 @@
           ],
           "returns": "bool"
         },
+        "create_input_action": {
+          "doc": "X.create_input_action(package_path, value_type, description=\"\", save=True) -> str",
+          "params": [
+            {
+              "default": null,
+              "has_default": false,
+              "name": "package_path",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "value_type",
+              "type": ""
+            },
+            {
+              "default": "\"\"",
+              "has_default": true,
+              "name": "description",
+              "type": ""
+            },
+            {
+              "default": "True",
+              "has_default": true,
+              "name": "save",
+              "type": ""
+            }
+          ],
+          "returns": "str"
+        },
+        "create_input_mapping_context": {
+          "doc": "X.create_input_mapping_context(package_path, description=\"\", save=True) -> str",
+          "params": [
+            {
+              "default": null,
+              "has_default": false,
+              "name": "package_path",
+              "type": ""
+            },
+            {
+              "default": "\"\"",
+              "has_default": true,
+              "name": "description",
+              "type": ""
+            },
+            {
+              "default": "True",
+              "has_default": true,
+              "name": "save",
+              "type": ""
+            }
+          ],
+          "returns": "str"
+        },
         "deproject_screen_to_world": {
           "doc": "X.deproject_screen_to_world(normalized_x, normalized_y) -> (out_origin=Vector, out_direction=Vector) or None",
           "params": [
@@ -10457,6 +11153,18 @@
             }
           ],
           "returns": "bool"
+        },
+        "detect_key_conflicts": {
+          "doc": "X.detect_key_conflicts(mapping_context_paths) -> Array[BridgeKeyConflict]",
+          "params": [
+            {
+              "default": null,
+              "has_default": false,
+              "name": "mapping_context_paths",
+              "type": ""
+            }
+          ],
+          "returns": "Array[BridgeKeyConflict]"
         },
         "draw_debug_arrow": {
           "doc": "X.draw_debug_arrow(start, end, arrow_size=20.000000, duration_seconds=5.000000) -> bool",
@@ -10602,6 +11310,95 @@
           ],
           "returns": "bool"
         },
+        "dump_injected_input_queue": {
+          "doc": "X.dump_injected_input_queue() -> (int32, out_paths=Array[str], out_values=Array[Vector], out_hold_remaining_seconds=Array[float])",
+          "params": [],
+          "returns": "(int32, out_paths=Array[str], out_values=Array[Vector], out_hold_remaining_seconds=Array[float])"
+        },
+        "duplicate_input_action": {
+          "doc": "X.duplicate_input_action(source_path, dest_path, save=True) -> str",
+          "params": [
+            {
+              "default": null,
+              "has_default": false,
+              "name": "source_path",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "dest_path",
+              "type": ""
+            },
+            {
+              "default": "True",
+              "has_default": true,
+              "name": "save",
+              "type": ""
+            }
+          ],
+          "returns": "str"
+        },
+        "duplicate_input_mapping_context": {
+          "doc": "X.duplicate_input_mapping_context(source_path, dest_path, save=True) -> str",
+          "params": [
+            {
+              "default": null,
+              "has_default": false,
+              "name": "source_path",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "dest_path",
+              "type": ""
+            },
+            {
+              "default": "True",
+              "has_default": true,
+              "name": "save",
+              "type": ""
+            }
+          ],
+          "returns": "str"
+        },
+        "find_input_action_references": {
+          "doc": "X.find_input_action_references(input_action_path, blueprint_package_path_filter=\"\") -> Array[BridgeInputReference]",
+          "params": [
+            {
+              "default": null,
+              "has_default": false,
+              "name": "input_action_path",
+              "type": ""
+            },
+            {
+              "default": "\"\"",
+              "has_default": true,
+              "name": "blueprint_package_path_filter",
+              "type": ""
+            }
+          ],
+          "returns": "Array[BridgeInputReference]"
+        },
+        "find_input_mapping_context_references": {
+          "doc": "X.find_input_mapping_context_references(mapping_context_path, blueprint_package_path_filter=\"\") -> Array[BridgeInputReference]",
+          "params": [
+            {
+              "default": null,
+              "has_default": false,
+              "name": "mapping_context_path",
+              "type": ""
+            },
+            {
+              "default": "\"\"",
+              "has_default": true,
+              "name": "blueprint_package_path_filter",
+              "type": ""
+            }
+          ],
+          "returns": "Array[BridgeInputReference]"
+        },
         "find_nav_path": {
           "doc": "X.find_nav_path(start_location, end_location) -> (out_waypoints=Array[Vector], out_path_length=float) or None",
           "params": [
@@ -10636,6 +11433,11 @@
           "doc": "X.flush_persistent_debug_draws() -> bool",
           "params": [],
           "returns": "bool"
+        },
+        "get_active_mapping_context_stack": {
+          "doc": "X.get_active_mapping_context_stack() -> Array[BridgeMappingContextEntry]",
+          "params": [],
+          "returns": "Array[BridgeMappingContextEntry]"
         },
         "get_actor_at_screen_position": {
           "doc": "X.get_actor_at_screen_position(normalized_x, normalized_y, max_distance=10000.000000) -> str",
@@ -10758,6 +11560,18 @@
           "params": [],
           "returns": "Rotator or None"
         },
+        "get_current_input_action_state": {
+          "doc": "X.get_current_input_action_state(input_action_path) -> BridgeInputActionState",
+          "params": [
+            {
+              "default": null,
+              "has_default": false,
+              "name": "input_action_path",
+              "type": ""
+            }
+          ],
+          "returns": "BridgeInputActionState"
+        },
         "get_distance_to_pawn": {
           "doc": "X.get_distance_to_pawn(location) -> float",
           "params": [
@@ -10785,6 +11599,18 @@
           "params": [],
           "returns": "float"
         },
+        "get_input_action_modifiers_full": {
+          "doc": "X.get_input_action_modifiers_full(input_action_path) -> Array[BridgeInputComponentInstance]",
+          "params": [
+            {
+              "default": null,
+              "has_default": false,
+              "name": "input_action_path",
+              "type": ""
+            }
+          ],
+          "returns": "Array[BridgeInputComponentInstance]"
+        },
         "get_input_action_triggers": {
           "doc": "X.get_input_action_triggers(input_action_path) -> (out_trigger_names=Array[str], out_threshold_seconds=Array[float]) or None",
           "params": [
@@ -10797,6 +11623,18 @@
           ],
           "returns": "(out_trigger_names=Array[str], out_threshold_seconds=Array[float]) or None"
         },
+        "get_input_action_triggers_full": {
+          "doc": "X.get_input_action_triggers_full(input_action_path) -> Array[BridgeInputComponentInstance]",
+          "params": [
+            {
+              "default": null,
+              "has_default": false,
+              "name": "input_action_path",
+              "type": ""
+            }
+          ],
+          "returns": "Array[BridgeInputComponentInstance]"
+        },
         "get_input_action_value_type": {
           "doc": "X.get_input_action_value_type(input_action_path) -> str",
           "params": [
@@ -10808,6 +11646,18 @@
             }
           ],
           "returns": "str"
+        },
+        "get_input_mapping_context_mappings": {
+          "doc": "X.get_input_mapping_context_mappings(mapping_context_path) -> Array[BridgeIMCMapping]",
+          "params": [
+            {
+              "default": null,
+              "has_default": false,
+              "name": "mapping_context_path",
+              "type": ""
+            }
+          ],
+          "returns": "Array[BridgeIMCMapping]"
         },
         "get_nav_mesh_bounds": {
           "doc": "X.get_nav_mesh_bounds() -> (out_min=Vector, out_max=Vector) or None",
@@ -11036,6 +11886,76 @@
           "params": [],
           "returns": "bool"
         },
+        "list_input_actions": {
+          "doc": "X.list_input_actions(content_path_filter, max_results=0) -> Array[str]",
+          "params": [
+            {
+              "default": null,
+              "has_default": false,
+              "name": "content_path_filter",
+              "type": ""
+            },
+            {
+              "default": "0",
+              "has_default": true,
+              "name": "max_results",
+              "type": ""
+            }
+          ],
+          "returns": "Array[str]"
+        },
+        "list_input_actions_by_value_type": {
+          "doc": "X.list_input_actions_by_value_type(content_path_filter, value_type_filter, max_results=0) -> Array[str]",
+          "params": [
+            {
+              "default": null,
+              "has_default": false,
+              "name": "content_path_filter",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "value_type_filter",
+              "type": ""
+            },
+            {
+              "default": "0",
+              "has_default": true,
+              "name": "max_results",
+              "type": ""
+            }
+          ],
+          "returns": "Array[str]"
+        },
+        "list_input_mapping_contexts": {
+          "doc": "X.list_input_mapping_contexts(content_path_filter, max_results=0) -> Array[str]",
+          "params": [
+            {
+              "default": null,
+              "has_default": false,
+              "name": "content_path_filter",
+              "type": ""
+            },
+            {
+              "default": "0",
+              "has_default": true,
+              "name": "max_results",
+              "type": ""
+            }
+          ],
+          "returns": "Array[str]"
+        },
+        "list_legacy_action_mappings": {
+          "doc": "X.list_legacy_action_mappings() -> Array[BridgeLegacyActionMapping]",
+          "params": [],
+          "returns": "Array[BridgeLegacyActionMapping]"
+        },
+        "list_legacy_axis_mappings": {
+          "doc": "X.list_legacy_axis_mappings() -> Array[BridgeLegacyAxisMapping]",
+          "params": [],
+          "returns": "Array[BridgeLegacyAxisMapping]"
+        },
         "pause_game": {
           "doc": "X.pause_game(paused) -> bool",
           "params": [
@@ -11186,6 +12106,66 @@
           ],
           "returns": "Vector2D or None"
         },
+        "remove_ia_mapping_from_imc": {
+          "doc": "X.remove_ia_mapping_from_imc(mapping_context_path, input_action_path, key_name) -> bool",
+          "params": [
+            {
+              "default": null,
+              "has_default": false,
+              "name": "mapping_context_path",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "input_action_path",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "key_name",
+              "type": ""
+            }
+          ],
+          "returns": "bool"
+        },
+        "remove_legacy_action_mapping": {
+          "doc": "X.remove_legacy_action_mapping(mapping_name, key_name) -> bool",
+          "params": [
+            {
+              "default": null,
+              "has_default": false,
+              "name": "mapping_name",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "key_name",
+              "type": ""
+            }
+          ],
+          "returns": "bool"
+        },
+        "remove_legacy_axis_mapping": {
+          "doc": "X.remove_legacy_axis_mapping(mapping_name, key_name) -> bool",
+          "params": [
+            {
+              "default": null,
+              "has_default": false,
+              "name": "mapping_name",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "key_name",
+              "type": ""
+            }
+          ],
+          "returns": "bool"
+        },
         "remove_mapping_context": {
           "doc": "X.remove_mapping_context(mapping_context_path) -> bool",
           "params": [
@@ -11193,6 +12173,126 @@
               "default": null,
               "has_default": false,
               "name": "mapping_context_path",
+              "type": ""
+            }
+          ],
+          "returns": "bool"
+        },
+        "remove_modifier_from_ia": {
+          "doc": "X.remove_modifier_from_ia(input_action_path, index, save=True) -> bool",
+          "params": [
+            {
+              "default": null,
+              "has_default": false,
+              "name": "input_action_path",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "index",
+              "type": ""
+            },
+            {
+              "default": "True",
+              "has_default": true,
+              "name": "save",
+              "type": ""
+            }
+          ],
+          "returns": "bool"
+        },
+        "remove_modifier_from_imc_mapping": {
+          "doc": "X.remove_modifier_from_imc_mapping(mapping_context_path, input_action_path, key_name, index, save=True) -> bool",
+          "params": [
+            {
+              "default": null,
+              "has_default": false,
+              "name": "mapping_context_path",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "input_action_path",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "key_name",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "index",
+              "type": ""
+            },
+            {
+              "default": "True",
+              "has_default": true,
+              "name": "save",
+              "type": ""
+            }
+          ],
+          "returns": "bool"
+        },
+        "remove_trigger_from_ia": {
+          "doc": "X.remove_trigger_from_ia(input_action_path, index, save=True) -> bool",
+          "params": [
+            {
+              "default": null,
+              "has_default": false,
+              "name": "input_action_path",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "index",
+              "type": ""
+            },
+            {
+              "default": "True",
+              "has_default": true,
+              "name": "save",
+              "type": ""
+            }
+          ],
+          "returns": "bool"
+        },
+        "remove_trigger_from_imc_mapping": {
+          "doc": "X.remove_trigger_from_imc_mapping(mapping_context_path, input_action_path, key_name, index, save=True) -> bool",
+          "params": [
+            {
+              "default": null,
+              "has_default": false,
+              "name": "mapping_context_path",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "input_action_path",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "key_name",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "index",
+              "type": ""
+            },
+            {
+              "default": "True",
+              "has_default": true,
+              "name": "save",
               "type": ""
             }
           ],
@@ -11252,6 +12352,72 @@
               "default": null,
               "has_default": false,
               "name": "scale",
+              "type": ""
+            }
+          ],
+          "returns": "bool"
+        },
+        "set_imc_mapping_player_mappable_key_settings": {
+          "doc": "X.set_imc_mapping_player_mappable_key_settings(mapping_context_path, input_action_path, key_name, player_mappable_key_settings_path, save=True) -> bool",
+          "params": [
+            {
+              "default": null,
+              "has_default": false,
+              "name": "mapping_context_path",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "input_action_path",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "key_name",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "player_mappable_key_settings_path",
+              "type": ""
+            },
+            {
+              "default": "True",
+              "has_default": true,
+              "name": "save",
+              "type": ""
+            }
+          ],
+          "returns": "bool"
+        },
+        "set_input_action_property": {
+          "doc": "X.set_input_action_property(input_action_path, property_name, json_value, save=True) -> bool",
+          "params": [
+            {
+              "default": null,
+              "has_default": false,
+              "name": "input_action_path",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "property_name",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "json_value",
+              "type": ""
+            },
+            {
+              "default": "True",
+              "has_default": true,
+              "name": "save",
               "type": ""
             }
           ],
@@ -11334,6 +12500,30 @@
             }
           ],
           "returns": "(out_land_location=Vector, out_land_actor_label=str) or None"
+        },
+        "simulate_key_event": {
+          "doc": "X.simulate_key_event(key_name, pressed, user_index=0) -> bool",
+          "params": [
+            {
+              "default": null,
+              "has_default": false,
+              "name": "key_name",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "pressed",
+              "type": ""
+            },
+            {
+              "default": "0",
+              "has_default": true,
+              "name": "user_index",
+              "type": ""
+            }
+          ],
+          "returns": "bool"
         },
         "spawn_actor_in_pie": {
           "doc": "X.spawn_actor_in_pie(class_path, location, rotation) -> str",
@@ -11464,6 +12654,18 @@
           "doc": "X.unlock_camera_fov() -> bool",
           "params": [],
           "returns": "bool"
+        },
+        "validate_input_bindings": {
+          "doc": "X.validate_input_bindings(blueprint_package_path_filter=\"\") -> Array[BridgeInputBindingIssue]",
+          "params": [
+            {
+              "default": "\"\"",
+              "has_default": true,
+              "name": "blueprint_package_path_filter",
+              "type": ""
+            }
+          ],
+          "returns": "Array[BridgeInputBindingIssue]"
         },
         "wake_pie_actor_physics": {
           "doc": "X.wake_pie_actor_physics(actor_name) -> bool",
@@ -15330,15 +16532,185 @@
     },
     "UnrealBridgePerfLibrary": {
       "functions": {
+        "clear_hitch_log": {
+          "doc": "X.clear_hitch_log() -> None",
+          "params": [],
+          "returns": "None"
+        },
+        "export_perf_samples_to_csv": {
+          "doc": "X.export_perf_samples_to_csv(output_path) -> bool",
+          "params": [
+            {
+              "default": null,
+              "has_default": false,
+              "name": "output_path",
+              "type": ""
+            }
+          ],
+          "returns": "bool"
+        },
+        "get_actor_render_cost": {
+          "doc": "X.get_actor_render_cost(actor_path) -> BridgeActorRenderCost",
+          "params": [
+            {
+              "default": null,
+              "has_default": false,
+              "name": "actor_path",
+              "type": ""
+            }
+          ],
+          "returns": "BridgeActorRenderCost"
+        },
+        "get_asset_size_top_n": {
+          "doc": "X.get_asset_size_top_n(class_filter, top_n=50) -> Array[BridgePerfBreakdownRow]",
+          "params": [
+            {
+              "default": null,
+              "has_default": false,
+              "name": "class_filter",
+              "type": ""
+            },
+            {
+              "default": "50",
+              "has_default": true,
+              "name": "top_n",
+              "type": ""
+            }
+          ],
+          "returns": "Array[BridgePerfBreakdownRow]"
+        },
+        "get_audio_memory_breakdown": {
+          "doc": "X.get_audio_memory_breakdown(group_by=\"compression_format\", mode=\"disk\", max_groups=50) -> Array[BridgePerfBreakdownRow]",
+          "params": [
+            {
+              "default": "\"compression_format\"",
+              "has_default": true,
+              "name": "group_by",
+              "type": ""
+            },
+            {
+              "default": "\"disk\"",
+              "has_default": true,
+              "name": "mode",
+              "type": ""
+            },
+            {
+              "default": "50",
+              "has_default": true,
+              "name": "max_groups",
+              "type": ""
+            }
+          ],
+          "returns": "Array[BridgePerfBreakdownRow]"
+        },
+        "get_frame_time_histogram": {
+          "doc": "X.get_frame_time_histogram(bucket_ms=5.000000, max_bucket_ms=100.000000) -> Array[BridgeHistogramBucket]",
+          "params": [
+            {
+              "default": "5.000000",
+              "has_default": true,
+              "name": "bucket_ms",
+              "type": ""
+            },
+            {
+              "default": "100.000000",
+              "has_default": true,
+              "name": "max_bucket_ms",
+              "type": ""
+            }
+          ],
+          "returns": "Array[BridgeHistogramBucket]"
+        },
         "get_frame_timing": {
           "doc": "X.get_frame_timing() -> BridgeFrameTiming",
           "params": [],
           "returns": "BridgeFrameTiming"
         },
+        "get_hitch_log": {
+          "doc": "X.get_hitch_log(threshold_ms=50.000000, max_entries=50) -> Array[BridgeHitchEntry]",
+          "params": [
+            {
+              "default": "50.000000",
+              "has_default": true,
+              "name": "threshold_ms",
+              "type": ""
+            },
+            {
+              "default": "50",
+              "has_default": true,
+              "name": "max_entries",
+              "type": ""
+            }
+          ],
+          "returns": "Array[BridgeHitchEntry]"
+        },
+        "get_lod_distribution": {
+          "doc": "X.get_lod_distribution(class_filter, actor_filter) -> Array[BridgePerfBreakdownRow]",
+          "params": [
+            {
+              "default": null,
+              "has_default": false,
+              "name": "class_filter",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "actor_filter",
+              "type": ""
+            }
+          ],
+          "returns": "Array[BridgePerfBreakdownRow]"
+        },
+        "get_lumen_diagnostics": {
+          "doc": "X.get_lumen_diagnostics() -> BridgeLumenDiagnostics",
+          "params": [],
+          "returns": "BridgeLumenDiagnostics"
+        },
         "get_memory_stats": {
           "doc": "X.get_memory_stats() -> BridgeMemoryStats",
           "params": [],
           "returns": "BridgeMemoryStats"
+        },
+        "get_mesh_memory_breakdown": {
+          "doc": "X.get_mesh_memory_breakdown(group_by, mesh_type=\"all\", mode=\"disk\", max_groups=50) -> Array[BridgePerfBreakdownRow]",
+          "params": [
+            {
+              "default": null,
+              "has_default": false,
+              "name": "group_by",
+              "type": ""
+            },
+            {
+              "default": "\"all\"",
+              "has_default": true,
+              "name": "mesh_type",
+              "type": ""
+            },
+            {
+              "default": "\"disk\"",
+              "has_default": true,
+              "name": "mode",
+              "type": ""
+            },
+            {
+              "default": "50",
+              "has_default": true,
+              "name": "max_groups",
+              "type": ""
+            }
+          ],
+          "returns": "Array[BridgePerfBreakdownRow]"
+        },
+        "get_nanite_stats": {
+          "doc": "X.get_nanite_stats() -> BridgeNaniteStats",
+          "params": [],
+          "returns": "BridgeNaniteStats"
+        },
+        "get_perf_sampling_state": {
+          "doc": "X.get_perf_sampling_state() -> BridgePerfSamplingState",
+          "params": [],
+          "returns": "BridgePerfSamplingState"
         },
         "get_perf_snapshot": {
           "doc": "X.get_perf_snapshot(include_u_object_stats=False, u_object_top_n=20) -> BridgePerfSnapshot",
@@ -15363,6 +16735,59 @@
           "params": [],
           "returns": "BridgeRenderCounters"
         },
+        "get_shadow_caster_breakdown": {
+          "doc": "X.get_shadow_caster_breakdown(top_n=30) -> Array[BridgeActorRenderCost]",
+          "params": [
+            {
+              "default": "30",
+              "has_default": true,
+              "name": "top_n",
+              "type": ""
+            }
+          ],
+          "returns": "Array[BridgeActorRenderCost]"
+        },
+        "get_texture_memory_breakdown": {
+          "doc": "X.get_texture_memory_breakdown(group_by, mode=\"disk\", max_groups=50) -> Array[BridgePerfBreakdownRow]",
+          "params": [
+            {
+              "default": null,
+              "has_default": false,
+              "name": "group_by",
+              "type": ""
+            },
+            {
+              "default": "\"disk\"",
+              "has_default": true,
+              "name": "mode",
+              "type": ""
+            },
+            {
+              "default": "50",
+              "has_default": true,
+              "name": "max_groups",
+              "type": ""
+            }
+          ],
+          "returns": "Array[BridgePerfBreakdownRow]"
+        },
+        "get_trace_state": {
+          "doc": "X.get_trace_state() -> BridgeTraceState",
+          "params": [],
+          "returns": "BridgeTraceState"
+        },
+        "get_u_object_memory_breakdown": {
+          "doc": "X.get_u_object_memory_breakdown(top_n=20) -> Array[BridgePerfBreakdownRow]",
+          "params": [
+            {
+              "default": "20",
+              "has_default": true,
+              "name": "top_n",
+              "type": ""
+            }
+          ],
+          "returns": "Array[BridgePerfBreakdownRow]"
+        },
         "get_u_object_stats": {
           "doc": "X.get_u_object_stats(top_n=20) -> BridgeUObjectStats",
           "params": [
@@ -15374,6 +16799,116 @@
             }
           ],
           "returns": "BridgeUObjectStats"
+        },
+        "get_visible_primitives_by_material": {
+          "doc": "X.get_visible_primitives_by_material(viewport_index=0, top_n=50) -> Array[BridgeMaterialRenderRow]",
+          "params": [
+            {
+              "default": "0",
+              "has_default": true,
+              "name": "viewport_index",
+              "type": ""
+            },
+            {
+              "default": "50",
+              "has_default": true,
+              "name": "top_n",
+              "type": ""
+            }
+          ],
+          "returns": "Array[BridgeMaterialRenderRow]"
+        },
+        "get_world_actor_breakdown": {
+          "doc": "X.get_world_actor_breakdown(level_filter, group_by=\"class\", max_groups=200) -> Array[BridgePerfBreakdownRow]",
+          "params": [
+            {
+              "default": null,
+              "has_default": false,
+              "name": "level_filter",
+              "type": ""
+            },
+            {
+              "default": "\"class\"",
+              "has_default": true,
+              "name": "group_by",
+              "type": ""
+            },
+            {
+              "default": "200",
+              "has_default": true,
+              "name": "max_groups",
+              "type": ""
+            }
+          ],
+          "returns": "Array[BridgePerfBreakdownRow]"
+        },
+        "list_trace_channels": {
+          "doc": "X.list_trace_channels() -> Array[BridgeTraceChannelInfo]",
+          "params": [],
+          "returns": "Array[BridgeTraceChannelInfo]"
+        },
+        "reset_frame_time_histogram": {
+          "doc": "X.reset_frame_time_histogram() -> None",
+          "params": [],
+          "returns": "None"
+        },
+        "start_perf_sampling": {
+          "doc": "X.start_perf_sampling(period_ms=100, max_samples=600, include_u_object_stats=False) -> bool",
+          "params": [
+            {
+              "default": "100",
+              "has_default": true,
+              "name": "period_ms",
+              "type": ""
+            },
+            {
+              "default": "600",
+              "has_default": true,
+              "name": "max_samples",
+              "type": ""
+            },
+            {
+              "default": "False",
+              "has_default": true,
+              "name": "include_u_object_stats",
+              "type": ""
+            }
+          ],
+          "returns": "bool"
+        },
+        "start_trace_capture": {
+          "doc": "X.start_trace_capture(channels, output_dir, max_size_mb=500) -> BridgeTraceStartResult",
+          "params": [
+            {
+              "default": null,
+              "has_default": false,
+              "name": "channels",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "output_dir",
+              "type": ""
+            },
+            {
+              "default": "500",
+              "has_default": true,
+              "name": "max_size_mb",
+              "type": ""
+            }
+          ],
+          "returns": "BridgeTraceStartResult"
+        },
+        "stop_perf_sampling": {
+          "doc": "X.stop_perf_sampling() -> Array[BridgePerfSnapshot]",
+          "params": [],
+          "returns": "Array[BridgePerfSnapshot]"
+        },
+        "stop_trace_capture": {
+          "doc": "X.stop_trace_capture() -> BridgeTraceStopResult",
+          "params": [],
+          "returns": "BridgeTraceStopResult"
         }
       }
     },
@@ -15782,6 +17317,622 @@
               "default": null,
               "has_default": false,
               "name": "blend_param_y",
+              "type": ""
+            }
+          ],
+          "returns": "bool"
+        }
+      }
+    },
+    "UnrealBridgeProceduralLibrary": {
+      "functions": {
+        "add_instances_by_transforms": {
+          "doc": "X.add_instances_by_transforms(actor_name, xs, world_space) -> Array[int32]",
+          "params": [
+            {
+              "default": null,
+              "has_default": false,
+              "name": "actor_name",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "xs",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "world_space",
+              "type": ""
+            }
+          ],
+          "returns": "Array[int32]"
+        },
+        "clear_instances": {
+          "doc": "X.clear_instances(actor_name) -> bool",
+          "params": [
+            {
+              "default": null,
+              "has_default": false,
+              "name": "actor_name",
+              "type": ""
+            }
+          ],
+          "returns": "bool"
+        },
+        "ensure_procedural_ism_actor": {
+          "doc": "X.ensure_procedural_ism_actor(tag, mesh_path, use_hism) -> str",
+          "params": [
+            {
+              "default": null,
+              "has_default": false,
+              "name": "tag",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "mesh_path",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "use_hism",
+              "type": ""
+            }
+          ],
+          "returns": "str"
+        },
+        "filter_points_by_density_mask": {
+          "doc": "X.filter_points_by_density_mask(pts, texture_asset, bounds_xy, channel_index, threshold, seed) -> Array[Vector]",
+          "params": [
+            {
+              "default": null,
+              "has_default": false,
+              "name": "pts",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "texture_asset",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "bounds_xy",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "channel_index",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "threshold",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "seed",
+              "type": ""
+            }
+          ],
+          "returns": "Array[Vector]"
+        },
+        "filter_points_by_landscape_layer": {
+          "doc": "X.filter_points_by_landscape_layer(pts, landscape_label, layer_name, threshold) -> Array[Vector]",
+          "params": [
+            {
+              "default": null,
+              "has_default": false,
+              "name": "pts",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "landscape_label",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "layer_name",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "threshold",
+              "type": ""
+            }
+          ],
+          "returns": "Array[Vector]"
+        },
+        "filter_points_by_min_distance": {
+          "doc": "X.filter_points_by_min_distance(in_, min_dist) -> Array[Vector]",
+          "params": [
+            {
+              "default": null,
+              "has_default": false,
+              "name": "in_",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "min_dist",
+              "type": ""
+            }
+          ],
+          "returns": "Array[Vector]"
+        },
+        "filter_points_by_overlap": {
+          "doc": "X.filter_points_by_overlap(pts, blocking_class_paths, radius) -> Array[Vector]",
+          "params": [
+            {
+              "default": null,
+              "has_default": false,
+              "name": "pts",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "blocking_class_paths",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "radius",
+              "type": ""
+            }
+          ],
+          "returns": "Array[Vector]"
+        },
+        "filter_points_by_slope": {
+          "doc": "X.filter_points_by_slope(in_, max_slope_deg, bounce_up) -> Array[Vector]",
+          "params": [
+            {
+              "default": null,
+              "has_default": false,
+              "name": "in_",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "max_slope_deg",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "bounce_up",
+              "type": ""
+            }
+          ],
+          "returns": "Array[Vector]"
+        },
+        "filter_points_inside_actor": {
+          "doc": "X.filter_points_inside_actor(pts, container_actor_label, inside) -> Array[Vector]",
+          "params": [
+            {
+              "default": null,
+              "has_default": false,
+              "name": "pts",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "container_actor_label",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "inside",
+              "type": ""
+            }
+          ],
+          "returns": "Array[Vector]"
+        },
+        "jitter_transforms": {
+          "doc": "X.jitter_transforms(xs, pos_sigma, rot_sigma, scale_min, scale_max, seed) -> Array[Transform]",
+          "params": [
+            {
+              "default": null,
+              "has_default": false,
+              "name": "xs",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "pos_sigma",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "rot_sigma",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "scale_min",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "scale_max",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "seed",
+              "type": ""
+            }
+          ],
+          "returns": "Array[Transform]"
+        },
+        "project_points_to_surface": {
+          "doc": "X.project_points_to_surface(in_, bounce_up, bounce_down) -> (Array[Vector], out_hit_normals=Array[Vector])",
+          "params": [
+            {
+              "default": null,
+              "has_default": false,
+              "name": "in_",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "bounce_up",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "bounce_down",
+              "type": ""
+            }
+          ],
+          "returns": "(Array[Vector], out_hit_normals=Array[Vector])"
+        },
+        "rebuild_procedural_navigation": {
+          "doc": "X.rebuild_procedural_navigation(actor_name) -> bool",
+          "params": [
+            {
+              "default": null,
+              "has_default": false,
+              "name": "actor_name",
+              "type": ""
+            }
+          ],
+          "returns": "bool"
+        },
+        "remove_instances_by_ids": {
+          "doc": "X.remove_instances_by_ids(actor_name, instance_ids) -> bool",
+          "params": [
+            {
+              "default": null,
+              "has_default": false,
+              "name": "actor_name",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "instance_ids",
+              "type": ""
+            }
+          ],
+          "returns": "bool"
+        },
+        "sample_points_grid": {
+          "doc": "X.sample_points_grid(bounds, spacing, jitter_ratio, seed) -> Array[Vector]",
+          "params": [
+            {
+              "default": null,
+              "has_default": false,
+              "name": "bounds",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "spacing",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "jitter_ratio",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "seed",
+              "type": ""
+            }
+          ],
+          "returns": "Array[Vector]"
+        },
+        "sample_points_in_volume": {
+          "doc": "X.sample_points_in_volume(volume_actor_label, count, seed, max_attempts) -> Array[Vector]",
+          "params": [
+            {
+              "default": null,
+              "has_default": false,
+              "name": "volume_actor_label",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "count",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "seed",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "max_attempts",
+              "type": ""
+            }
+          ],
+          "returns": "Array[Vector]"
+        },
+        "sample_points_jitter_stratified": {
+          "doc": "X.sample_points_jitter_stratified(bounds, grid_resolution, seed) -> Array[Vector]",
+          "params": [
+            {
+              "default": null,
+              "has_default": false,
+              "name": "bounds",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "grid_resolution",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "seed",
+              "type": ""
+            }
+          ],
+          "returns": "Array[Vector]"
+        },
+        "sample_points_on_landscape": {
+          "doc": "X.sample_points_on_landscape(landscape_label, bounds2d, count, seed) -> Array[Vector]",
+          "params": [
+            {
+              "default": null,
+              "has_default": false,
+              "name": "landscape_label",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "bounds2d",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "count",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "seed",
+              "type": ""
+            }
+          ],
+          "returns": "Array[Vector]"
+        },
+        "sample_points_on_spline": {
+          "doc": "X.sample_points_on_spline(spline_actor_label, component_name, mode, count_or_spacing) -> Array[Vector]",
+          "params": [
+            {
+              "default": null,
+              "has_default": false,
+              "name": "spline_actor_label",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "component_name",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "mode",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "count_or_spacing",
+              "type": ""
+            }
+          ],
+          "returns": "Array[Vector]"
+        },
+        "sample_points_on_surface": {
+          "doc": "X.sample_points_on_surface(actor_label, count, seed, max_bounce_up) -> Array[Vector]",
+          "params": [
+            {
+              "default": null,
+              "has_default": false,
+              "name": "actor_label",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "count",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "seed",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "max_bounce_up",
+              "type": ""
+            }
+          ],
+          "returns": "Array[Vector]"
+        },
+        "sample_points_poisson_disk2d": {
+          "doc": "X.sample_points_poisson_disk2d(bounds, min_radius, max_attempts, seed) -> Array[Vector]",
+          "params": [
+            {
+              "default": null,
+              "has_default": false,
+              "name": "bounds",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "min_radius",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "max_attempts",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "seed",
+              "type": ""
+            }
+          ],
+          "returns": "Array[Vector]"
+        },
+        "sample_points_poisson_disk3d": {
+          "doc": "X.sample_points_poisson_disk3d(bounds, min_radius, max_attempts, seed) -> Array[Vector]",
+          "params": [
+            {
+              "default": null,
+              "has_default": false,
+              "name": "bounds",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "min_radius",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "max_attempts",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "seed",
+              "type": ""
+            }
+          ],
+          "returns": "Array[Vector]"
+        },
+        "sample_transforms_along_spline": {
+          "doc": "X.sample_transforms_along_spline(spline_actor_label, component_name, mode, count_or_spacing) -> Array[Transform]",
+          "params": [
+            {
+              "default": null,
+              "has_default": false,
+              "name": "spline_actor_label",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "component_name",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "mode",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "count_or_spacing",
+              "type": ""
+            }
+          ],
+          "returns": "Array[Transform]"
+        },
+        "update_instance_transforms_by_ids": {
+          "doc": "X.update_instance_transforms_by_ids(actor_name, ids, new_xs, world_space) -> bool",
+          "params": [
+            {
+              "default": null,
+              "has_default": false,
+              "name": "actor_name",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "ids",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "new_xs",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "world_space",
               "type": ""
             }
           ],
@@ -16933,6 +19084,14 @@
       "distance",
       "name"
     ],
+    "BridgeActorRenderCost": [
+      "actor_path",
+      "casts_dynamic_shadow",
+      "estimated_triangle_count",
+      "material_slot_count",
+      "materials",
+      "primitive_component_count"
+    ],
     "BridgeAddExpressionResult": [
       "error",
       "guid",
@@ -17134,6 +19293,7 @@
     "BridgeBreakpointHitValue": [
       "kind",
       "name",
+      "owner_class",
       "type",
       "value"
     ],
@@ -17271,6 +19431,12 @@
       "inner_type_name",
       "name",
       "type_name"
+    ],
+    "BridgeDataTableImportResult": [
+      "asset_path",
+      "errors",
+      "rows_imported",
+      "success"
     ],
     "BridgeDataTableInfo": [
       "column_names",
@@ -17499,11 +19665,61 @@
       "task_name",
       "trigger_summary"
     ],
+    "BridgeHistogramBucket": [
+      "count",
+      "lower_ms",
+      "percent",
+      "upper_ms"
+    ],
+    "BridgeHitchEntry": [
+      "frame_number",
+      "game_thread_ms",
+      "gpu_ms",
+      "render_thread_ms",
+      "timestamp_seconds",
+      "total_ms"
+    ],
+    "BridgeIMCMapping": [
+      "action_name",
+      "action_path",
+      "key_name",
+      "modifier_classes",
+      "trigger_classes"
+    ],
+    "BridgeInputActionState": [
+      "elapsed_processed_time",
+      "elapsed_triggered_time",
+      "has_state",
+      "trigger_event",
+      "value"
+    ],
+    "BridgeInputBindingIssue": [
+      "asset_path",
+      "detail",
+      "kind"
+    ],
+    "BridgeInputComponentInstance": [
+      "class_name",
+      "class_path",
+      "params_json"
+    ],
+    "BridgeInputReference": [
+      "asset_path",
+      "detail",
+      "graph_name",
+      "kind",
+      "node_guid"
+    ],
     "BridgeInterfaceInfo": [
       "functions",
       "interface_name",
       "interface_path",
       "is_blueprint_implemented"
+    ],
+    "BridgeKeyConflict": [
+      "action_paths",
+      "key_name",
+      "mapping_context_path"
     ],
     "BridgeLayoutResult": [
       "bounds_height",
@@ -17512,6 +19728,19 @@
       "nodes_positioned",
       "succeeded",
       "warnings"
+    ],
+    "BridgeLegacyActionMapping": [
+      "alt",
+      "cmd",
+      "ctrl",
+      "key_name",
+      "mapping_name",
+      "shift"
+    ],
+    "BridgeLegacyAxisMapping": [
+      "key_name",
+      "mapping_name",
+      "scale"
     ],
     "BridgeLevelComponentInfo": [
       "attach_parent",
@@ -17542,6 +19771,14 @@
       "status",
       "triggered"
     ],
+    "BridgeLumenDiagnostics": [
+      "active_visualization_mode",
+      "available",
+      "engine_version",
+      "lumen_gi_enabled",
+      "lumen_reflections_enabled",
+      "visualization_modes"
+    ],
     "BridgeMIParamResult": [
       "applied",
       "skipped",
@@ -17561,6 +19798,10 @@
       "default_value",
       "id",
       "name"
+    ],
+    "BridgeMappingContextEntry": [
+      "mapping_context_path",
+      "priority"
     ],
     "BridgeMaterialAnalysis": [
       "compile_errors",
@@ -17726,6 +19967,12 @@
       "scalar_parameters",
       "vector_parameters"
     ],
+    "BridgeMaterialRenderRow": [
+      "material_path",
+      "primitive_count",
+      "sample_actor_paths",
+      "total_triangles"
+    ],
     "BridgeMaterialShaderStat": [
       "extra_statistics",
       "instruction_count",
@@ -17781,6 +20028,14 @@
       "looping_count",
       "slot_name",
       "start_pos"
+    ],
+    "BridgeNaniteStats": [
+      "available",
+      "engine_version",
+      "is_safe_for_rendering",
+      "max_hierarchy_levels",
+      "max_streaming_pages",
+      "nanite_static_mesh_components"
     ],
     "BridgeNodeCoverageEntry": [
       "graph_name",
@@ -17919,6 +20174,21 @@
       "mirror_data_table_path",
       "role",
       "skeleton_path"
+    ],
+    "BridgePerfBreakdownRow": [
+      "count",
+      "key",
+      "level_name",
+      "sample_paths",
+      "total_bytes"
+    ],
+    "BridgePerfSamplingState": [
+      "active",
+      "include_u_object_stats",
+      "max_samples",
+      "period_ms",
+      "samples_collected",
+      "started_at_utc"
     ],
     "BridgePerfSnapshot": [
       "capture_time_utc",
@@ -18220,6 +20490,30 @@
       "track_name",
       "track_type"
     ],
+    "BridgeTraceChannelInfo": [
+      "description",
+      "enabled",
+      "name"
+    ],
+    "BridgeTraceStartResult": [
+      "channels",
+      "error",
+      "path",
+      "success"
+    ],
+    "BridgeTraceState": [
+      "active",
+      "channels",
+      "current_size_bytes",
+      "path",
+      "started_at_utc"
+    ],
+    "BridgeTraceStopResult": [
+      "duration_seconds",
+      "path",
+      "size_bytes",
+      "success"
+    ],
     "BridgeTransform": [
       "location",
       "rotation",
@@ -18301,6 +20595,12 @@
       "name",
       "type",
       "value"
+    ],
+    "BridgeWireIAResult": [
+      "call_node_guid",
+      "event_node_guid",
+      "failure_reason",
+      "wired"
     ]
   },
   "ue_version": "5.7.1-48512491+++UE5+Release-5.7"

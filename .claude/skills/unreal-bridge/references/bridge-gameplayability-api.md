@@ -1012,7 +1012,7 @@ Set the `GameplayCueTag` field on an `AGameplayCueNotify_Actor` or `UGameplayCue
 
 ## Cross-asset GameplayTag reference scanner
 
-### find_gameplay_tag_references(tag_query, package_path, b_match_exact, max_results) -> FBridgeTagReferenceReport
+### find_gameplay_tag_references(tag_query, package_path, match_exact, max_results) -> FBridgeTagReferenceReport
 
 Walks every Blueprint + DataTable + DataAsset under `package_path` and returns every place the tag is used. Designed for "is anything still using this tag?" before a rename or delete.
 
@@ -1030,7 +1030,7 @@ Recurses into nested structs, TArray<FStruct>, TMap, TSet, and instanced UObject
 |---|---|
 | `tag_query` | Must be registered with `UGameplayTagsManager`. Unregistered → empty report (with warning log). |
 | `package_path` | Content root; `"/Game"` by default. Recursive. |
-| `b_match_exact` | `True` → only exact matches. `False` → also matches descendants of `tag_query` (e.g. query `"Ability.Combat"` matches `"Ability.Combat.Fire"`). |
+| `match_exact` | `True` → only exact matches. `False` → also matches descendants of `tag_query` (e.g. query `"Ability.Combat"` matches `"Ability.Combat.Fire"`). |
 | `max_results` | Caps `references` at this count and sets `truncated=True`. `0` or negative → 5000 (the absolute hard cap). |
 
 Returned `FBridgeTagReferenceReport`:
@@ -1043,7 +1043,7 @@ Returned `FBridgeTagReferenceReport`:
 | `reference_count` | Total rows in `references` (≤ `max_results`). |
 | `truncated` | `True` when the cap was hit before the walk finished. |
 | `scan_duration_ms` | Wall-clock cost. |
-| `references` | List of `FBridgeTagReference`: `asset_path`, `asset_class`, `location` (e.g. `"GEComponents[0]->InheritableAssetTags.Added"`), `context` (`"CDO"` / `"Row: <name>"` / `"Graph: X, Node: Y"`), `matched_tag` (the actual tag found — useful when `b_match_exact=False`). |
+| `references` | List of `FBridgeTagReference`: `asset_path`, `asset_class`, `location` (e.g. `"GEComponents[0]->InheritableAssetTags.Added"`), `context` (`"CDO"` / `"Row: <name>"` / `"Graph: X, Node: Y"`), `matched_tag` (the actual tag found — useful when `match_exact=False`). |
 
 **Cost** — first call cold-loads every BP + DT under `package_path`, expect 5–60s on a mid-size GAS project. Subsequent calls (within the same editor session, against assets already in memory) drop to milliseconds. Don't hammer in a hot loop — use for one-shot audits.
 
