@@ -45,6 +45,7 @@ public class UnrealBridge : ModuleRules
 			"MainFrame",
 			"NavigationSystem",
 			"Navmesh",
+			"Landscape",
 			"EnhancedInput",
 			"InputBlueprintNodes",
 			"InputEditor",

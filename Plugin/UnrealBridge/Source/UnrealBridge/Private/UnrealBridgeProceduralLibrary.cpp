@@ -12,7 +12,10 @@
 #include "Components/HierarchicalInstancedStaticMeshComponent.h"
 #include "CollisionQueryParams.h"
 #include "Math/RandomStream.h"
+#include "Math/UnrealMathUtility.h"
 #include "ScopedTransaction.h"
+#include "LandscapeProxy.h"
+#include "LandscapeInfo.h"
 
 #define LOCTEXT_NAMESPACE "UnrealBridgeProcedural"
 
@@ -191,6 +194,288 @@ TArray<FVector> UUnrealBridgeProceduralLibrary::SamplePointsOnSurface(
 				ECC_Visibility, Params))
 		{
 			Out.Add(Hit.ImpactPoint);
+		}
+	}
+
+	return Out;
+}
+
+TArray<FVector> UUnrealBridgeProceduralLibrary::SamplePointsOnLandscape(
+	const FString& LandscapeLabel, FBox Bounds2D, int32 Count, int32 Seed)
+{
+	TArray<FVector> Out;
+
+	if (Count <= 0)
+	{
+		return Out;
+	}
+	if (Count > BridgeProceduralImpl::MaxPointCount)
+	{
+		UE_LOG(LogTemp, Warning,
+			TEXT("UnrealBridge: SamplePointsOnLandscape Count=%d exceeds cap %d — refusing."),
+			Count, BridgeProceduralImpl::MaxPointCount);
+		return Out;
+	}
+	if (!Bounds2D.IsValid)
+	{
+		return Out;
+	}
+
+	UWorld* World = BridgeProceduralImpl::GetEditorWorld();
+	AActor* Target = BridgeProceduralImpl::FindActor(World, LandscapeLabel);
+	ALandscapeProxy* RootProxy = Cast<ALandscapeProxy>(Target);
+	if (!RootProxy)
+	{
+		UE_LOG(LogTemp, Warning,
+			TEXT("UnrealBridge: SamplePointsOnLandscape — '%s' not a Landscape actor"),
+			*LandscapeLabel);
+		return Out;
+	}
+
+	ULandscapeInfo* Info = RootProxy->GetLandscapeInfo();
+	if (!Info)
+	{
+		UE_LOG(LogTemp, Warning,
+			TEXT("UnrealBridge: SamplePointsOnLandscape — landscape '%s' has no LandscapeInfo "
+				 "(check level streaming state)"),
+			*LandscapeLabel);
+		return Out;
+	}
+
+	FRandomStream Rng(Seed);
+	Out.Reserve(Count);
+
+	for (int32 i = 0; i < Count; ++i)
+	{
+		const float X = Rng.FRandRange(Bounds2D.Min.X, Bounds2D.Max.X);
+		const float Y = Rng.FRandRange(Bounds2D.Min.Y, Bounds2D.Max.Y);
+		const FVector QueryLoc(X, Y, 0.f);
+
+		TOptional<float> ResultZ;
+		// ForEachLandscapeProxy iterates root + all streaming proxies; fn returns
+		// false to early-exit on first hit (plan §6 #5 — World Partition / streaming
+		// proxies cover non-overlapping regions, first hit wins).
+		Info->ForEachLandscapeProxy([&ResultZ, &QueryLoc](ALandscapeProxy* P) -> bool
+		{
+			if (!P)
+			{
+				return true; // continue
+			}
+			TOptional<float> R = P->GetHeightAtLocation(QueryLoc);
+			if (R.IsSet())
+			{
+				ResultZ = R;
+				return false; // break
+			}
+			return true; // continue
+		});
+
+		if (ResultZ.IsSet())
+		{
+			Out.Emplace(X, Y, *ResultZ);
+		}
+	}
+
+	return Out;
+}
+
+TArray<FVector> UUnrealBridgeProceduralLibrary::SamplePointsPoissonDisk2D(
+	FBox Bounds, float MinRadius, int32 MaxAttempts, int32 Seed)
+{
+	TArray<FVector> Out;
+
+	if (!Bounds.IsValid || MinRadius <= 0.f)
+	{
+		return Out;
+	}
+	if (MaxAttempts <= 0)
+	{
+		MaxAttempts = 30; // Bridson 2007 canonical default
+	}
+
+	const FVector Size = Bounds.GetSize();
+	if (Size.X <= 0.f || Size.Y <= 0.f)
+	{
+		// Degenerate bounds — Bridson cell grid would have 0 cells. Plan §6 #4.
+		return Out;
+	}
+
+	const float OutZ = Bounds.Min.Z;
+	const float CellSize = MinRadius / FMath::Sqrt(2.f);
+	const int32 GridW = FMath::Max(1, FMath::CeilToInt(Size.X / CellSize));
+	const int32 GridH = FMath::Max(1, FMath::CeilToInt(Size.Y / CellSize));
+
+	const int64 GridCells = static_cast<int64>(GridW) * static_cast<int64>(GridH);
+	if (GridCells > BridgeProceduralImpl::MaxPointCount * 4)
+	{
+		// Worst-case grid memory grows with area / R²; for very small R relative
+		// to bounds this becomes an OOM hazard. Refuse early.
+		UE_LOG(LogTemp, Warning,
+			TEXT("UnrealBridge: SamplePointsPoissonDisk2D grid (%d × %d = %lld cells) too large; "
+				 "raise MinRadius or shrink Bounds."),
+			GridW, GridH, GridCells);
+		return Out;
+	}
+
+	// Grid stores index into Out, INDEX_NONE = empty cell.
+	TArray<int32> Grid;
+	Grid.Init(INDEX_NONE, static_cast<int32>(GridCells));
+
+	auto CellIndex = [GridW](int32 cx, int32 cy)
+	{
+		return cy * GridW + cx;
+	};
+
+	auto PointToCell = [&](const FVector& P, int32& OutCX, int32& OutCY)
+	{
+		OutCX = FMath::Clamp(FMath::FloorToInt((P.X - Bounds.Min.X) / CellSize), 0, GridW - 1);
+		OutCY = FMath::Clamp(FMath::FloorToInt((P.Y - Bounds.Min.Y) / CellSize), 0, GridH - 1);
+	};
+
+	FRandomStream Rng(Seed);
+	TArray<int32> Active;
+	Out.Reserve(FMath::Min<int32>(static_cast<int32>(GridCells), BridgeProceduralImpl::MaxPointCount));
+
+	// Initial point.
+	const FVector First(
+		Rng.FRandRange(Bounds.Min.X, Bounds.Max.X),
+		Rng.FRandRange(Bounds.Min.Y, Bounds.Max.Y),
+		OutZ);
+	int32 fcx, fcy;
+	PointToCell(First, fcx, fcy);
+	Out.Add(First);
+	Grid[CellIndex(fcx, fcy)] = 0;
+	Active.Add(0);
+
+	const float MinR2 = MinRadius * MinRadius;
+
+	while (Active.Num() > 0)
+	{
+		if (Out.Num() >= BridgeProceduralImpl::MaxPointCount)
+		{
+			UE_LOG(LogTemp, Warning,
+				TEXT("UnrealBridge: SamplePointsPoissonDisk2D hit cap %d, truncating."),
+				BridgeProceduralImpl::MaxPointCount);
+			break;
+		}
+
+		const int32 ActiveIdx = Rng.RandRange(0, Active.Num() - 1);
+		const int32 PointIdx = Active[ActiveIdx];
+		const FVector P = Out[PointIdx];
+
+		bool bFoundCandidate = false;
+		for (int32 attempt = 0; attempt < MaxAttempts; ++attempt)
+		{
+			const float Angle = Rng.FRandRange(0.f, 2.f * PI);
+			const float Dist = Rng.FRandRange(MinRadius, 2.f * MinRadius);
+			const float CX = P.X + FMath::Cos(Angle) * Dist;
+			const float CY = P.Y + FMath::Sin(Angle) * Dist;
+
+			if (CX < Bounds.Min.X || CX > Bounds.Max.X ||
+				CY < Bounds.Min.Y || CY > Bounds.Max.Y)
+			{
+				continue;
+			}
+
+			const FVector Cand(CX, CY, OutZ);
+			int32 cx, cy;
+			PointToCell(Cand, cx, cy);
+
+			// 5×5 neighborhood: cell size = R/√2 means worst-case neighbor at
+			// 2 cells away may still be < R. So search [-2, +2] on both axes.
+			bool bConflict = false;
+			for (int32 dy = -2; dy <= 2 && !bConflict; ++dy)
+			{
+				const int32 ny = cy + dy;
+				if (ny < 0 || ny >= GridH)
+				{
+					continue;
+				}
+				for (int32 dx = -2; dx <= 2 && !bConflict; ++dx)
+				{
+					const int32 nx = cx + dx;
+					if (nx < 0 || nx >= GridW)
+					{
+						continue;
+					}
+					const int32 NeighIdx = Grid[CellIndex(nx, ny)];
+					if (NeighIdx == INDEX_NONE)
+					{
+						continue;
+					}
+					const FVector& Existing = Out[NeighIdx];
+					const float ddx = Cand.X - Existing.X;
+					const float ddy = Cand.Y - Existing.Y;
+					if (ddx * ddx + ddy * ddy < MinR2)
+					{
+						bConflict = true;
+					}
+				}
+			}
+
+			if (!bConflict)
+			{
+				const int32 NewIdx = Out.Add(Cand);
+				Grid[CellIndex(cx, cy)] = NewIdx;
+				Active.Add(NewIdx);
+				bFoundCandidate = true;
+				break;
+			}
+		}
+
+		if (!bFoundCandidate)
+		{
+			Active.RemoveAtSwap(ActiveIdx);
+		}
+	}
+
+	return Out;
+}
+
+// ─── M2 — Filter ─────────────────────────────────────────────
+
+TArray<FVector> UUnrealBridgeProceduralLibrary::ProjectPointsToSurface(
+	const TArray<FVector>& In, float BounceUp, float BounceDown, TArray<FVector>& OutHitNormals)
+{
+	TArray<FVector> Out;
+	OutHitNormals.Reset();
+
+	if (In.Num() == 0)
+	{
+		return Out;
+	}
+
+	UWorld* World = BridgeProceduralImpl::GetEditorWorld();
+	if (!World)
+	{
+		// Degenerate: return inputs unchanged with up-normals so caller's pipeline
+		// stays parallel-safe (plan D2 — same length in/out).
+		Out = In;
+		OutHitNormals.Init(FVector::UpVector, In.Num());
+		return Out;
+	}
+
+	Out.Reserve(In.Num());
+	OutHitNormals.Reserve(In.Num());
+
+	FCollisionQueryParams Params(SCENE_QUERY_STAT(BridgeProjectToSurface), /*bTraceComplex=*/true);
+
+	for (const FVector& P : In)
+	{
+		FHitResult Hit;
+		const FVector Start(P.X, P.Y, P.Z + BounceUp);
+		const FVector End(P.X, P.Y, P.Z - BounceDown);
+
+		if (World->LineTraceSingleByChannel(Hit, Start, End, ECC_Visibility, Params))
+		{
+			Out.Add(Hit.ImpactPoint);
+			OutHitNormals.Add(Hit.ImpactNormal);
+		}
+		else
+		{
+			// Plan D2 — keep the slot, pass through original + degenerate up-normal.
+			Out.Add(P);
+			OutHitNormals.Add(FVector::UpVector);
 		}
 	}
 

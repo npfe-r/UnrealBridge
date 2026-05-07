@@ -8,7 +8,7 @@ Hard contract:
 - Trace-based sampling uses `ECC_Visibility` + `bTraceComplex=true`, matching the existing trace family.
 - Hard cap of **100,000 points** per call. Above that, return empty + log warning. The 100k+ scale is PCG's territory.
 
-Currently shipped (M1-1, M1-4, M3-1, M3-2, M3-5 — first vertical slice). Forthcoming per roadmap: M1-2 Poisson2D, M1-5 Landscape direct sampling, M2-1/3/7 filter family, M3-6 nav rebuild.
+Currently shipped (M1-1, M1-2, M1-4, M1-5, M2-7, M3-1, M3-2, M3-5). Forthcoming per roadmap: M2-1 slope filter, M2-3 min-distance filter, M3-6 nav rebuild.
 
 ---
 
@@ -67,6 +67,102 @@ print(f"got {len(pts)} hits from 2000 attempts")
 - For Landscape specifically, this is 5-10x slower than the forthcoming `sample_points_on_landscape` (M1-5) which uses `ALandscapeProxy::GetHeightAtLocation`. Use this version when you need PIE compatibility or non-Landscape surfaces.
 - Hit rate < 100%: misses (sky, gaps in terrain, holes) are silently dropped — caller can't distinguish "actor too small" from "all rays missed". Compare `len(pts)` to `count` to detect.
 - Actor bounds includes child actors (`bIncludeFromChildActors=true`) — large vehicles or compound actors may have looser bounds than visual extent.
+
+---
+
+## sample_points_on_landscape(landscape_label, bounds_2d, count, seed) -> list[Vector]
+
+Random points on a Landscape via direct height-query API (`ALandscapeProxy::GetHeightAtLocation`). 5-10x faster than `sample_points_on_surface` for landscape targets. Iterates root + all `LandscapeStreamingProxy` actors automatically — handles World Partition / Landscape Streaming sublevels transparently.
+
+| Param | Type | Notes |
+|---|---|---|
+| `landscape_label` | str | Target Landscape actor's label or FName. Must `Cast<ALandscapeProxy>` cleanly. |
+| `bounds_2d` | `FBox` | XY range to sample. Z component on input is ignored; output Z is the queried surface height. |
+| `count` | int32 | Number of XY samples. Capped at 100,000. |
+| `seed` | int32 | `FRandomStream` seed. |
+
+Returns: list of points. Empty if landscape not found / Count > cap / no `LandscapeInfo` (typical when level isn't loaded).
+
+**Cost** — O(count × proxy_count). For a single-proxy landscape ~200ns/point, vs ~5-10μs/point for line-trace based `sample_points_on_surface`.
+
+**Example**
+```python
+bounds_xy = u.Box.build_aabb(u.Vector(0,0,0), u.Vector(10000, 10000, 0))
+pts = P.sample_points_on_landscape("Landscape_0", bounds_xy, count=5000, seed=42)
+print(f"{len(pts)} hits inside landscape coverage")
+```
+
+**Pitfalls**
+- **Editor-only** — `ULandscapeInfo` is not populated in shipping builds and not always present in PIE. For PIE-time sampling use `sample_points_on_surface` (M1-4).
+- A `LandscapeStreamingProxy` whose level is unloaded does NOT contribute heights — its slice of the landscape returns no hits and points there are silently dropped. Pre-load relevant streaming levels first via `unreal.UnrealBridgeLevelLibrary.get_streaming_levels()` if you need full coverage.
+- `GetHeightAtLocation` defaults to `EHeightfieldSource::Complex` (heightmap mesh, exact). Bridge does not expose Simple-collision mode currently.
+
+---
+
+## sample_points_poisson_disk_2d(bounds, min_radius, max_attempts, seed) -> list[Vector]
+
+Bridson 2D Poisson-disk sampling — every output point ≥ `min_radius` from every other in XY plane. For natural-looking forest / scatter where regular grid spacing is visible.
+
+| Param | Type | Notes |
+|---|---|---|
+| `bounds` | `FBox` | XY range. Z ignored on input; output Z = `bounds.Min.Z` (pipe through `project_points_to_surface` for ground contact). |
+| `min_radius` | float (cm) | Minimum distance between any two points. > 0 required. |
+| `max_attempts` | int32 | Per-active-point candidate retries. **30** is the canonical Bridson 2007 value; raising helps tight packings. ≤ 0 is silently treated as 30. |
+| `seed` | int32 | `FRandomStream` seed. |
+
+Returns: point set. Output count is **not** controllable directly — depends on bounds area, min_radius, and stochastic rejection. Capped at 100,000.
+
+**Cost** — Worst-case O(N · max_attempts). Uses background grid (`cell = R/√2`) for O(1) neighbor lookup. For a 10m × 10m bounds with R=2m and max_attempts=30, expect ~25 points and ~100μs total.
+
+Memory: `O((bounds_area / R²))` cells, each `int32`. Refused if grid would exceed 4 × cap (`400k cells`) — raise `min_radius` or shrink `bounds` if you hit this.
+
+**Example**
+```python
+bounds = u.Box.build_aabb(u.Vector(0,0,0), u.Vector(10000, 10000, 0))
+pts = P.sample_points_poisson_disk_2d(bounds, min_radius=300.0, max_attempts=30, seed=42)
+print(f"{len(pts)} naturally-spaced points, all ≥ 3m apart")
+```
+
+**Pitfalls**
+- Output count varies with seed even at fixed params — Bridson's stochastic rejection means seed=42 might give 1247 points and seed=43 give 1239. Acceptable for most use cases; if you need exact count, oversample then `random.shuffle + truncate` on the Python side.
+- For irregular regions (not axis-aligned boxes), sample inside the bounding rectangle then post-filter via `filter_points_inside_actor` (forthcoming M2-5).
+- 5×5 neighborhood scan is correct for cell = R/√2 — tweaking cell size requires reanalyzing the conflict-detection radius.
+
+---
+
+## project_points_to_surface(in, bounce_up, bounce_down, out_hit_normals) -> list[Vector]
+
+Project each input point vertically onto whatever's beneath (or above, within `bounce_up`) via line trace. The standard "after Poisson2D, drape onto terrain" finishing step. Output array is **always parallel** to input — same length, no filtering.
+
+| Param | Type | Notes |
+|---|---|---|
+| `in` | `list[Vector]` | Input point list. |
+| `bounce_up` | float (cm) | cm above each input Z to start the trace. 5000 typical. |
+| `bounce_down` | float (cm) | cm below each input Z as trace endpoint. 5000 typical. |
+| `out_hit_normals` | [out] `list[Vector]` | Parallel array of impact normals. `(0,0,1)` on miss. |
+
+Returns: projected points. **Same length as input.** Misses pass the original point through unchanged with a +Z normal.
+
+In Python, the `out_*` parameter pattern returns a tuple: `(projected_pts, normals) = P.project_points_to_surface(in, ...)`.
+
+**Cost** — O(N) line traces on GameThread. ~5-10μs per trace; budget ~5ms per 1000 points. Above ~10k inputs split across multiple `bridge.exec` calls.
+
+**Example**
+```python
+poisson_pts = P.sample_points_poisson_disk_2d(bounds, 300.0, 30, 42)
+projected, normals = P.project_points_to_surface(poisson_pts, 5000.0, 5000.0)
+# Now `projected` has correct ground Z, `normals` has surface orientation per point.
+# Build transforms with normal-aligned rotation:
+xs = []
+for pt, n in zip(projected, normals):
+    rot = u.Rotator(0,0,0).from_axis_and_angle(...)  # depends on use-case
+    xs.append(u.Transform(pt, rot, u.Vector(1,1,1)))
+```
+
+**Pitfalls**
+- Misses produce a degenerate (original_point, up_normal) entry — does NOT mark them. If you need to drop misses, post-filter on Python side by checking which output points moved vs original.
+- Trace channel is `ECC_Visibility` with complex collision, matching the rest of the trace family. Glass / water / collision-disabled actors may pass through.
+- Editor-only: requires editor world. Won't run inside PIE the same way.
 
 ---
 
@@ -153,35 +249,48 @@ ids = P.add_instances_by_transforms("Procedural_Trees_PineForest", new_xs, True)
 
 ---
 
-## End-to-end recipe (current slice)
+## End-to-end recipe (current state)
 
-The 5 functions shipped here cover "spawn N grid-aligned things on a surface and clear them later":
+A naturalistic forest scatter on a Landscape — this works **today** with the 8 shipped functions:
 
 ```python
 import unreal as u
 P = u.UnrealBridgeProceduralLibrary
 
-# Pick a 100m x 100m region, sample at 5m spacing
-bounds = u.Box.build_aabb(u.Vector(0, 0, 0), u.Vector(5000, 5000, 0))
-grid = P.sample_points_grid(bounds, spacing=500.0, jitter_ratio=0.3, seed=42)
+# 200m × 200m landscape region
+bounds = u.Box.build_aabb(u.Vector(0, 0, 0), u.Vector(20000, 20000, 0))
 
-# Drape onto landscape (or any surface actor)
-pts = P.sample_points_on_surface("LandscapeActor", count=len(grid), seed=42, max_bounce_up=5000.0)
+# 1) Sample with natural spacing (Poisson) — guarantees ≥ 5m between trees
+poisson = P.sample_points_poisson_disk_2d(bounds, min_radius=500.0, max_attempts=30, seed=42)
+print(f"Poisson sampled {len(poisson)} candidates")
 
-# Convert to transforms (no rotation/scale variation yet — that's M1-10 jitter_transforms)
-xs = [u.Transform(p, u.Rotator(0,0,0), u.Vector(1,1,1)) for p in pts]
+# 2) Drape onto landscape surface — output Z + normals for each
+projected, normals = P.project_points_to_surface(poisson, 5000.0, 5000.0)
 
-# Spawn HISM stub + add instances
-actor = P.ensure_procedural_ism_actor("Demo_Rocks", "/Game/Env/SM_Rock_01", b_use_hism=True)
+# 3) Build transforms (uniform rotation/scale for now; jitter_transforms M1-10 forthcoming)
+xs = [u.Transform(p, u.Rotator(0,0,0), u.Vector(1,1,1)) for p in projected]
+
+# 4) Spawn HISM stub + add all instances in one batch
+actor = P.ensure_procedural_ism_actor("Forest_Pines", "/Game/Trees/SM_Pine", b_use_hism=True)
 ids = P.add_instances_by_transforms(actor, xs, b_world_space=True)
-print(f"placed {len(ids)} rocks")
+print(f"Placed {len(ids)} pines")
 
-# Iterate by clearing + re-running with a different seed
+# 5) Re-roll with a different seed — same chain, different seed, full deterministic re-run
 P.clear_instances(actor)
+poisson2 = P.sample_points_poisson_disk_2d(bounds, 500.0, 30, seed=99)
+proj2, _ = P.project_points_to_surface(poisson2, 5000.0, 5000.0)
+xs2 = [u.Transform(p, u.Rotator(0,0,0), u.Vector(1,1,1)) for p in proj2]
+P.add_instances_by_transforms(actor, xs2, True)
+```
+
+For Landscape specifically, **steps 1+2 collapse** into one faster call:
+```python
+# When target is a Landscape, this is 5-10x faster than Poisson + project_to_surface
+pts = P.sample_points_on_landscape("Landscape_0", bounds, count=2000, seed=42)
+# pts already has correct surface Z; jump straight to step 3.
 ```
 
 **Forthcoming** (per `docs/plans/procedural-content-roadmap.md` P0):
-- `sample_points_poisson_disk_2d` — Bridson algorithm for natural distribution
-- `sample_points_on_landscape` — 5-10x faster Landscape-direct sampling
-- `filter_points_by_slope` / `filter_points_by_min_distance` / `project_points_to_surface` — filter chain
+- `filter_points_by_slope` / `filter_points_by_min_distance` — filter chain refinement
 - `rebuild_procedural_navigation` — single nav rebuild at end of placement batch
+- `jitter_transforms` (M1-10) — randomize rotation/scale per instance from a base transform list

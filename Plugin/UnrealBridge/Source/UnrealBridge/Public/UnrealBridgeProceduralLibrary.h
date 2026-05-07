@@ -63,6 +63,83 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "UnrealBridge|Procedural")
 	static TArray<FVector> SamplePointsOnSurface(const FString& ActorLabel, int32 Count, int32 Seed, float MaxBounceUp);
 
+	/**
+	 * Random points on a Landscape via direct height-query API. 5-10x faster than
+	 * `SamplePointsOnSurface` for landscape targets because it bypasses line-trace
+	 * and goes straight to `ALandscapeProxy::GetHeightAtLocation`. Hit rate is
+	 * effectively 100% inside Landscape coverage (vs <100% for trace-based which
+	 * misses on holes/sky).
+	 *
+	 * Iterates **all** `LandscapeStreamingProxy` actors of the LandscapeInfo, so
+	 * World Partition / Landscape Streaming sublevels are handled transparently —
+	 * a sample point that falls outside the root proxy but inside a streaming
+	 * proxy still gets a hit (plan §6 #5).
+	 *
+	 * Editor-only: depends on `ULandscapeInfo` lookup which is not populated in
+	 * shipping builds. For PIE-time landscape sampling use `SamplePointsOnSurface`
+	 * (M1-4) — slower but PIE-compatible.
+	 *
+	 * @param LandscapeLabel  Target Landscape actor's label or FName.
+	 * @param Bounds2D        XY range to sample in. Z is ignored on input; output Z
+	 *                        is the queried height per point.
+	 * @param Count           Number of XY samples. Capped at 100,000.
+	 * @param Seed            FRandomStream seed.
+	 * @return Hit point list. Empty if landscape not found / Count > cap.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "UnrealBridge|Procedural")
+	static TArray<FVector> SamplePointsOnLandscape(const FString& LandscapeLabel, FBox Bounds2D, int32 Count, int32 Seed);
+
+	/**
+	 * Bridson Poisson-disk sampling in 2D — every output point is at least
+	 * `MinRadius` away from every other (in XY plane). Output count is **not**
+	 * controllable directly: it depends on Bounds area, MinRadius, and the random
+	 * rejection process. For natural-looking forest / scatter where regular grid
+	 * spacing is visible.
+	 *
+	 * Algorithm: Bridson 2007. Background grid with cell = MinRadius/√2; per
+	 * accepted point, generate `MaxAttempts` candidates in annulus [R, 2R],
+	 * accept the first that has no neighbor within R via grid lookup. Worst-case
+	 * O(N · MaxAttempts) where N = output count.
+	 *
+	 * @param Bounds       Box defining the XY sampling region. Z ignored on input;
+	 *                     output Z = Bounds.Min.Z (caller pipes through
+	 *                     ProjectPointsToSurface (M2-7) for ground contact).
+	 * @param MinRadius    Minimum distance between any two points (cm). > 0 required.
+	 * @param MaxAttempts  Per-active-point candidate retries. 30 is the canonical
+	 *                     value from the Bridson paper; raising helps on tight
+	 *                     packings.
+	 * @param Seed         FRandomStream seed.
+	 * @return Point set. Capped at 100,000.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "UnrealBridge|Procedural")
+	static TArray<FVector> SamplePointsPoissonDisk2D(FBox Bounds, float MinRadius, int32 MaxAttempts, int32 Seed);
+
+	// ─── M2 — Filter ─────────────────────────────────────────
+
+	/**
+	 * Project each input point vertically onto the surface beneath it via
+	 * line-trace. The standard "after Poisson2D, drape onto terrain" finishing
+	 * step; also outputs the surface normal at each hit for downstream alignment.
+	 *
+	 * For each `In[i]`:
+	 *   from (x, y, z + BounceUp) trace down to (x, y, z - BounceDown);
+	 *   on hit  → push impact point + impact normal;
+	 *   on miss → push original point + +Z normal (degenerate fallback).
+	 *
+	 * Output array is **always parallel** to In — same length, no filtering. Use
+	 * this when you want to keep all points and just snap them; for true filtering
+	 * pair with `FilterPointsBySlope` / `FilterPointsByOverlap` (forthcoming M2-1
+	 * / M2-2).
+	 *
+	 * @param In             Input point list.
+	 * @param BounceUp       cm above each input Z to start the trace. 5000 typical.
+	 * @param BounceDown     cm below each input Z as the trace endpoint. 5000 typical.
+	 * @param OutHitNormals  [out] Parallel array of impact normals (or +Z on miss).
+	 * @return Projected points. Same length as In.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "UnrealBridge|Procedural")
+	static TArray<FVector> ProjectPointsToSurface(const TArray<FVector>& In, float BounceUp, float BounceDown, TArray<FVector>& OutHitNormals);
+
 	// ─── M3 — Instancing ─────────────────────────────────────
 
 	/**
