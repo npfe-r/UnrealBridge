@@ -609,6 +609,71 @@ struct FBridgePerfHotScope
 };
 
 /**
+ * Per-field delta between two `FBridgePerfSnapshot` instances (M8-2).
+ * Convention: every Delta field is `After - Before`. Positive memory deltas
+ * mean "after used more", positive timing deltas mean "after was slower".
+ */
+USTRUCT(BlueprintType)
+struct FBridgePerfSnapshotDelta
+{
+	GENERATED_BODY()
+
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Perf")
+	FString BeforeTimeUtc;
+
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Perf")
+	FString AfterTimeUtc;
+
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Perf")
+	float DeltaFps = 0.f;
+
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Perf")
+	float DeltaFrameMs = 0.f;
+
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Perf")
+	float DeltaGameThreadMs = 0.f;
+
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Perf")
+	float DeltaRenderThreadMs = 0.f;
+
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Perf")
+	float DeltaGpuMs = 0.f;
+
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Perf")
+	int32 DeltaDrawCalls = 0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Perf")
+	int32 DeltaPrimitivesDrawn = 0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Perf")
+	int64 DeltaUsedPhysicalMb = 0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Perf")
+	int64 DeltaUsedVirtualMb = 0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Perf")
+	int64 DeltaPeakUsedPhysicalMb = 0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Perf")
+	int64 DeltaAvailablePhysicalMb = 0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Perf")
+	int32 DeltaTotalObjects = 0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Perf")
+	int32 DeltaUniqueClasses = 0;
+
+	/** True when at least one significant regression was detected (>= threshold). */
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Perf")
+	bool bSignificantRegression = false;
+
+	/** Human-readable list of regressions worth flagging. Each entry names
+	 *  one metric, the before/after values and the % change. */
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Perf")
+	TArray<FString> Regressions;
+};
+
+/**
  * One trace counter (M5-3). Sourced from `ICounterProvider::EnumerateCounters`
  * + per-counter `EnumerateValues` / `EnumerateFloatValues`. Values are
  * aggregated over the full session interval; counter ranges (min / max /
@@ -2036,4 +2101,23 @@ public:
 	 */
 	UFUNCTION(BlueprintCallable, Category = "UnrealBridge|Perf")
 	static FBridgePerfCookSummary ParseCookTraceToSummary(const FString& UtracePath, int32 TopN = 50);
+
+	/**
+	 * Diff two `FBridgePerfSnapshot` instances (M8-2). Returns deltas for
+	 * every numeric field plus a list of human-readable regression strings
+	 * for any metric that changed by ≥ `RegressionThreshold` (e.g. 0.10 =
+	 * "flag anything that got 10% worse"). Memory + frame-time regressions
+	 * are flagged when they grow; FPS regressions when they shrink.
+	 *
+	 * Use case: after an asset edit / refactor, capture a snapshot before
+	 * and after and call this to get a structured "what got worse" report.
+	 *
+	 * Cost: < 1 ms — pure arithmetic + string formatting. No engine state
+	 * touched.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "UnrealBridge|Perf")
+	static FBridgePerfSnapshotDelta ComparePerfSnapshots(
+		const FBridgePerfSnapshot& Before,
+		const FBridgePerfSnapshot& After,
+		float RegressionThreshold = 0.10f);
 };

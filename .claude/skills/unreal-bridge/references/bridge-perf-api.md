@@ -365,6 +365,41 @@ UnrealEditor-Cmd.exe MyGame.uproject -run=Cook -targetplatform=Windows -trace=co
 
 ---
 
+## compare_perf_snapshots(before, after, regression_threshold=0.10) -> FBridgePerfSnapshotDelta
+
+**(M8-2)** Diff two `FBridgePerfSnapshot` instances. Returns per-field deltas (`After - Before`) plus a list of human-readable regression strings for any metric that changed by ≥ `regression_threshold` (default 10%).
+
+| Field | Type | Notes |
+|---|---|---|
+| `before_time_utc` / `after_time_utc` | str | Capture timestamps echoed back. |
+| `delta_fps` / `delta_frame_ms` / `delta_game_thread_ms` / `delta_render_thread_ms` / `delta_gpu_ms` | float | Timing deltas (positive = slower). |
+| `delta_draw_calls` / `delta_primitives_drawn` | int32 | Render counter deltas. |
+| `delta_used_physical_mb` / `delta_used_virtual_mb` / `delta_peak_used_physical_mb` / `delta_available_physical_mb` | int64 | Memory deltas. |
+| `delta_total_objects` / `delta_unique_classes` | int32 | UObject deltas (require `include_uobject_stats=True` on the snapshots). |
+| `significant_regression` | bool | True when ≥ 1 regression exceeded threshold. |
+| `regressions` | array of str | Pretty entries like `"frame_ms +25.0% (12.00 → 15.00 ms)"`. |
+
+**Cost** — < 1 ms.
+
+**Pitfalls**
+- A metric with a 0 baseline can't compute a percentage and is skipped (no division by zero).
+- `fps` regression is detected when `after < before` (lower = worse); other metrics flag when `after > before` (higher = worse).
+
+**Example — pre/post-edit regression check**
+```python
+import unreal
+before = unreal.UnrealBridgePerfLibrary.get_perf_snapshot(True)
+# ... do edit / re-cook / etc ...
+after  = unreal.UnrealBridgePerfLibrary.get_perf_snapshot(True)
+delta  = unreal.UnrealBridgePerfLibrary.compare_perf_snapshots(before, after, 0.10)
+if delta.significant_regression:
+    print("REGRESSION:")
+    for r in delta.regressions:
+        print(f"  {r}")
+```
+
+---
+
 ## get_frame_time_percentiles(percentiles) -> array of float
 
 **(M5-4)** Compute percentile frame times from the always-on internal frame-time histogram. The histogram is populated by an `OnEndFrame` hook that has been recording every frame since module load (see `reset_frame_time_histogram` to baseline before a measurement window).

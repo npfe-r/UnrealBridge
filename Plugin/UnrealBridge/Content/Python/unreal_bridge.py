@@ -16,7 +16,7 @@ structural rather than mnemonic.
 
 import unreal
 
-_GENERATED_AT = '2026-05-08T17:05:20+00:00'
+_GENERATED_AT = '2026-05-08T17:08:18+00:00'
 _UE_VERSION = '5.7.1-48512491+++UE5+Release-5.7'
 
 class Anim:
@@ -4591,6 +4591,11 @@ class Perf:
     def clear_hitch_log():
         """X.clear_hitch_log() -> None"""
         return unreal.UnrealBridgePerfLibrary.clear_hitch_log()
+
+    @staticmethod
+    def compare_perf_snapshots(*, before, after, regression_threshold=0.100000):
+        """X.compare_perf_snapshots(before, after, regression_threshold=0.100000) -> BridgePerfSnapshotDelta"""
+        return unreal.UnrealBridgePerfLibrary.compare_perf_snapshots(before, after, regression_threshold)
 
     @staticmethod
     def export_perf_samples_to_csv(*, output_path):

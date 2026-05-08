@@ -73,4 +73,13 @@ FBridgePerfCookSummary UUnrealBridgePerfLibrary::ParseCookTraceToSummary(const F
 	return FBridgePerfCookSummary{};
 }
 
+FBridgePerfSnapshotDelta UUnrealBridgePerfLibrary::ComparePerfSnapshots(
+	const FBridgePerfSnapshot& Before,
+	const FBridgePerfSnapshot& After,
+	float RegressionThreshold)
+{
+	UE_LOG(LogTemp, Warning, TEXT("UUnrealBridgePerfLibrary::ComparePerfSnapshots requires UE 5.7+ — call ignored on this engine version"));
+	return FBridgePerfSnapshotDelta{};
+}
+
 #endif // UE_VERSION_OLDER_THAN(5, 7, 0)

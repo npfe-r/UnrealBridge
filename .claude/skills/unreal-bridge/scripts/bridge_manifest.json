@@ -31,7 +31,7 @@
       "TIMER"
     ]
   },
-  "generated_at": "2026-05-08T17:05:20+00:00",
+  "generated_at": "2026-05-08T17:08:18+00:00",
   "libraries": {
     "UnrealBridgeAnimLibrary": {
       "functions": {
@@ -17316,6 +17316,30 @@
           "params": [],
           "returns": "None"
         },
+        "compare_perf_snapshots": {
+          "doc": "X.compare_perf_snapshots(before, after, regression_threshold=0.100000) -> BridgePerfSnapshotDelta",
+          "params": [
+            {
+              "default": null,
+              "has_default": false,
+              "name": "before",
+              "type": ""
+            },
+            {
+              "default": null,
+              "has_default": false,
+              "name": "after",
+              "type": ""
+            },
+            {
+              "default": "0.100000",
+              "has_default": true,
+              "name": "regression_threshold",
+              "type": ""
+            }
+          ],
+          "returns": "BridgePerfSnapshotDelta"
+        },
         "export_perf_samples_to_csv": {
           "doc": "X.export_perf_samples_to_csv(output_path) -> bool",
           "params": [
@@ -21257,6 +21281,25 @@
       "timing",
       "u_objects",
       "was_in_pie"
+    ],
+    "BridgePerfSnapshotDelta": [
+      "after_time_utc",
+      "before_time_utc",
+      "delta_available_physical_mb",
+      "delta_draw_calls",
+      "delta_fps",
+      "delta_frame_ms",
+      "delta_game_thread_ms",
+      "delta_gpu_ms",
+      "delta_peak_used_physical_mb",
+      "delta_primitives_drawn",
+      "delta_render_thread_ms",
+      "delta_total_objects",
+      "delta_unique_classes",
+      "delta_used_physical_mb",
+      "delta_used_virtual_mb",
+      "regressions",
+      "significant_regression"
     ],
     "BridgePerfTraceSummary": [
       "app_name",

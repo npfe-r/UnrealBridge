@@ -4013,6 +4013,68 @@ FBridgeGpuPassTimings UUnrealBridgePerfLibrary::GetPerPassGpuTimings()
 	return Out;
 }
 
+// ─── M8-2 ComparePerfSnapshots ───────────────────────────────────
+
+FBridgePerfSnapshotDelta UUnrealBridgePerfLibrary::ComparePerfSnapshots(
+	const FBridgePerfSnapshot& Before,
+	const FBridgePerfSnapshot& After,
+	float RegressionThreshold)
+{
+	FBridgePerfSnapshotDelta Out;
+	Out.BeforeTimeUtc = Before.CaptureTimeUtc;
+	Out.AfterTimeUtc  = After.CaptureTimeUtc;
+
+	// Numeric deltas (After - Before).
+	Out.DeltaFps              = After.Timing.Fps              - Before.Timing.Fps;
+	Out.DeltaFrameMs          = After.Timing.FrameMs          - Before.Timing.FrameMs;
+	Out.DeltaGameThreadMs     = After.Timing.GameThreadMs     - Before.Timing.GameThreadMs;
+	Out.DeltaRenderThreadMs   = After.Timing.RenderThreadMs   - Before.Timing.RenderThreadMs;
+	Out.DeltaGpuMs            = After.Timing.GpuMs            - Before.Timing.GpuMs;
+	Out.DeltaDrawCalls        = After.Render.DrawCalls        - Before.Render.DrawCalls;
+	Out.DeltaPrimitivesDrawn  = After.Render.PrimitivesDrawn  - Before.Render.PrimitivesDrawn;
+	Out.DeltaUsedPhysicalMb   = After.Memory.UsedPhysicalMb   - Before.Memory.UsedPhysicalMb;
+	Out.DeltaUsedVirtualMb    = After.Memory.UsedVirtualMb    - Before.Memory.UsedVirtualMb;
+	Out.DeltaPeakUsedPhysicalMb = After.Memory.PeakUsedPhysicalMb - Before.Memory.PeakUsedPhysicalMb;
+	Out.DeltaAvailablePhysicalMb = After.Memory.AvailablePhysicalMb - Before.Memory.AvailablePhysicalMb;
+	Out.DeltaTotalObjects     = After.UObjects.TotalObjects   - Before.UObjects.TotalObjects;
+	Out.DeltaUniqueClasses    = After.UObjects.UniqueClasses  - Before.UObjects.UniqueClasses;
+
+	// Lambda for percent-regression detection on a "higher is worse" metric:
+	// e.g. frame_ms got worse if it grew by ≥ threshold * before.
+	auto FlagWorse = [&Out, RegressionThreshold](const TCHAR* MetricName, double BeforeVal, double AfterVal, const TCHAR* Unit, bool bHigherIsWorse)
+	{
+		if (BeforeVal <= 0.0)
+		{
+			return; // can't compute % from 0 baseline; skip.
+		}
+		const double Pct = (AfterVal - BeforeVal) / BeforeVal;
+		const double SignedPctForWorse = bHigherIsWorse ? Pct : -Pct;
+		if (SignedPctForWorse >= static_cast<double>(RegressionThreshold))
+		{
+			Out.bSignificantRegression = true;
+			Out.Regressions.Add(FString::Printf(TEXT("%s %+.1f%% (%.2f → %.2f %s)"),
+				MetricName,
+				Pct * 100.0,
+				BeforeVal,
+				AfterVal,
+				Unit));
+		}
+	};
+
+	FlagWorse(TEXT("frame_ms"),         Before.Timing.FrameMs,        After.Timing.FrameMs,        TEXT("ms"), /*higherIsWorse=*/true);
+	FlagWorse(TEXT("game_thread_ms"),   Before.Timing.GameThreadMs,   After.Timing.GameThreadMs,   TEXT("ms"), true);
+	FlagWorse(TEXT("render_thread_ms"), Before.Timing.RenderThreadMs, After.Timing.RenderThreadMs, TEXT("ms"), true);
+	FlagWorse(TEXT("gpu_ms"),           Before.Timing.GpuMs,          After.Timing.GpuMs,          TEXT("ms"), true);
+	FlagWorse(TEXT("fps"),              Before.Timing.Fps,            After.Timing.Fps,            TEXT(""),   /*higherIsWorse=*/false);
+	FlagWorse(TEXT("draw_calls"),       Before.Render.DrawCalls,      After.Render.DrawCalls,      TEXT(""),   true);
+	FlagWorse(TEXT("primitives"),       Before.Render.PrimitivesDrawn,After.Render.PrimitivesDrawn,TEXT(""),   true);
+	FlagWorse(TEXT("used_physical_mb"), Before.Memory.UsedPhysicalMb, After.Memory.UsedPhysicalMb, TEXT("MiB"),true);
+	FlagWorse(TEXT("used_virtual_mb"),  Before.Memory.UsedVirtualMb,  After.Memory.UsedVirtualMb,  TEXT("MiB"),true);
+	FlagWorse(TEXT("uobject_count"),    Before.UObjects.TotalObjects, After.UObjects.TotalObjects, TEXT(""),   true);
+
+	return Out;
+}
+
 // ─── M6-3 ParseCookTraceToSummary ────────────────────────────────
 
 FBridgePerfCookSummary UUnrealBridgePerfLibrary::ParseCookTraceToSummary(const FString& UtracePath, int32 TopN)
