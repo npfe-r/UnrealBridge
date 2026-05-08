@@ -608,6 +608,40 @@ struct FBridgePerfHotScope
 	int32 CallCount = 0;
 };
 
+/**
+ * One thread's top-N hot scopes (M5-2). Walked by `ParseTraceToSummary` for
+ * every CPU thread the IThreadProvider reports — `GameThread`, `RenderThread`,
+ * `RHIThread`, every `WorkerThread N`, etc. Each row's `TopScopes` is capped
+ * at the caller-provided TopN_PerThread to keep memory bounded on large traces.
+ */
+USTRUCT(BlueprintType)
+struct FBridgePerThreadHotScopes
+{
+	GENERATED_BODY()
+
+	/** OS thread name as registered with the trace stream. Empty if the
+	 *  thread emitted timing events but never registered a name. */
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Perf")
+	FString ThreadName;
+
+	/** Engine thread group ("GameThread" / "RenderingThread" / "Foreground" /
+	 *  empty for unknown). Source: `FThreadInfo::GroupName`. */
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Perf")
+	FString GroupName;
+
+	/** OS thread id. */
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Perf")
+	int64 ThreadId = 0;
+
+	/** Sum of every CPU scope's inclusive time on this thread, in milliseconds. */
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Perf")
+	double TotalCpuMs = 0.0;
+
+	/** Top-N timer scopes on this thread, ranked by total inclusive time desc. */
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Perf")
+	TArray<FBridgePerfHotScope> TopScopes;
+};
+
 /** Result of `parse_trace_to_summary` (M4-5). */
 USTRUCT(BlueprintType)
 struct FBridgePerfTraceSummary
@@ -667,6 +701,25 @@ struct FBridgePerfTraceSummary
 	/** Top-N timers ranked by total inclusive time across all CPU thread timelines. */
 	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Perf")
 	TArray<FBridgePerfHotScope> HotScopes;
+
+	// ─── M5-1: GPU hot scopes ────────────────────────────────────
+
+	/** Top-N GPU timer scopes by total inclusive time, aggregated across every
+	 *  GPU queue (`ITimingProfilerProvider::EnumerateGpuQueues`). Empty when
+	 *  the trace did not include the `gpu` channel. Names come from the same
+	 *  timer table as CPU scopes — GPU timers carry `ETimingProfilerTimerType::GpuScope`. */
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Perf")
+	TArray<FBridgePerfHotScope> GpuHotScopes;
+
+	// ─── M5-2: per-thread hot scopes ─────────────────────────────
+
+	/** One row per CPU thread the trace recorded events on. Each row carries
+	 *  the thread's name + group + total CPU time + top-N hottest scopes on
+	 *  that thread. Use this to distinguish GameThread vs RenderingThread vs
+	 *  WorkerThread bottlenecks. Sorted by `TotalCpuMs` descending. Cap of
+	 *  256 KB per thread is enforced via `TopNPerThread` clamp. */
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Perf")
+	TArray<FBridgePerThreadHotScopes> PerThreadHotScopes;
 
 	/** True when Analyze + every provider read succeeded. */
 	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Perf")
@@ -1178,13 +1231,19 @@ public:
 	 *
 	 * Editor-only path is fine; this works in both editor and cmdlet.
 	 *
-	 * @param UtracePath  Absolute path to a `.utrace` file. File must exist.
-	 * @param TopN        Cap on hot-scope rows returned (1..1000). Clamped.
-	 * @return            FBridgePerfTraceSummary with `bSuccess=true` on
-	 *                    success, or `bSuccess=false` + populated `Error`
-	 *                    on any failure (file missing, module load fail,
-	 *                    unparseable trace).
+	 * @param UtracePath       Absolute path to a `.utrace` file. File must exist.
+	 * @param TopN             Cap on global CPU + GPU hot-scope rows (1..1000). Clamped.
+	 * @param TopNPerThread    Cap on `TopScopes` per thread row (1..200). Clamped.
+	 *                         Setting to 0 skips the per-thread aggregation entirely
+	 *                         (saves time + memory on large traces).
+	 * @return                 FBridgePerfTraceSummary with `bSuccess=true` on
+	 *                         success, or `bSuccess=false` + populated `Error`
+	 *                         on any failure (file missing, module load fail,
+	 *                         unparseable trace).
 	 */
 	UFUNCTION(BlueprintCallable, Category = "UnrealBridge|Perf")
-	static FBridgePerfTraceSummary ParseTraceToSummary(const FString& UtracePath, int32 TopN = 20);
+	static FBridgePerfTraceSummary ParseTraceToSummary(
+		const FString& UtracePath,
+		int32 TopN = 20,
+		int32 TopNPerThread = 10);
 };

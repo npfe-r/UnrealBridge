@@ -31,7 +31,7 @@
       "TIMER"
     ]
   },
-  "generated_at": "2026-05-08T15:25:28+00:00",
+  "generated_at": "2026-05-08T16:16:01+00:00",
   "libraries": {
     "UnrealBridgeAnimLibrary": {
       "functions": {
@@ -17615,7 +17615,7 @@
           "returns": "Array[BridgeTraceChannelInfo]"
         },
         "parse_trace_to_summary": {
-          "doc": "X.parse_trace_to_summary(utrace_path, top_n=20) -> BridgePerfTraceSummary",
+          "doc": "X.parse_trace_to_summary(utrace_path, top_n=20, top_n_per_thread=10) -> BridgePerfTraceSummary",
           "params": [
             {
               "default": null,
@@ -17627,6 +17627,12 @@
               "default": "20",
               "has_default": true,
               "name": "top_n",
+              "type": ""
+            },
+            {
+              "default": "10",
+              "has_default": true,
+              "name": "top_n_per_thread",
               "type": ""
             }
           ],
@@ -20993,6 +20999,13 @@
       "role",
       "skeleton_path"
     ],
+    "BridgePerThreadHotScopes": [
+      "group_name",
+      "thread_id",
+      "thread_name",
+      "top_scopes",
+      "total_cpu_ms"
+    ],
     "BridgePerfBreakdownRow": [
       "count",
       "key",
@@ -21032,7 +21045,9 @@
       "frame_max_ms",
       "frame_min_ms",
       "game_frame_count",
+      "gpu_hot_scopes",
       "hot_scopes",
+      "per_thread_hot_scopes",
       "platform",
       "project_name",
       "success",

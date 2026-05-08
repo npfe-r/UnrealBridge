@@ -2935,9 +2935,120 @@ TArray<FBridgeTraceChannelInfo> UUnrealBridgePerfLibrary::ListTraceChannels()
 #include "TraceServices/Model/Diagnostics.h"
 #include "TraceServices/Model/Frames.h"
 #include "TraceServices/Model/TimingProfiler.h"
+#include "TraceServices/Model/Threads.h"
 #include "ProfilingDebugging/MiscTrace.h"  // ETraceFrameType
 
-FBridgePerfTraceSummary UUnrealBridgePerfLibrary::ParseTraceToSummary(const FString& UtracePath, int32 TopN)
+namespace BridgePerfTraceImpl
+{
+	/** Per-timer aggregate: total inclusive time + call count. */
+	struct FAgg
+	{
+		double TotalMs = 0.0;
+		int64  Count   = 0;
+	};
+
+	/**
+	 * Resolve `Event.TimerIndex` to the canonical TimerId.
+	 *
+	 * `Event.TimerIndex` carries one of two encodings:
+	 *  - regular id in [0..TimerCount-1] — used for plain CPU/GPU scopes
+	 *  - bit-inverted metadata id (i.e. very large `uint32`, top bit set) —
+	 *    used for events that carry per-instance metadata (`Foo Class=Bar`).
+	 *    These need `GetOriginalTimerIdFromMetadata` to recover the real id.
+	 *
+	 * Without this mapping, GPU + metadata-tagged events in the aggregation
+	 * fragment per-instance and resolve to `<TimerIndex N>` in the output.
+	 */
+	static uint32 ResolveTimerId(
+		const TraceServices::ITimingProfilerProvider* TimingProv,
+		uint32 RawIndex,
+		uint32 TimerCount)
+	{
+		if (RawIndex < TimerCount)
+		{
+			return RawIndex;
+		}
+		return TimingProv->GetOriginalTimerIdFromMetadata(RawIndex);
+	}
+
+	/**
+	 * Walk a single timeline and accumulate per-timer inclusive-time aggregates
+	 * into `Aggregates`. Reused by the global CPU pass, the per-thread pass and
+	 * the GPU pass — same EnumerateEvents shape works for all of them.
+	 *
+	 * `TimingProv` and `TimerCount` are needed so `ResolveTimerId` can collapse
+	 * metadata-tagged events back to their canonical timer.
+	 */
+	static void AccumulateTimeline(
+		const TraceServices::ITimingProfilerProvider* TimingProv,
+		uint32 TimerCount,
+		const TraceServices::ITimingProfilerProvider::Timeline& Timeline,
+		TMap<uint32, FAgg>& Aggregates)
+	{
+		const double Start = Timeline.GetStartTime();
+		const double End   = Timeline.GetEndTime();
+		if (Start >= End) return;
+
+		Timeline.EnumerateEvents(Start, End,
+			[&Aggregates, TimingProv, TimerCount](double StartTime, double EndTime, uint32 /*Depth*/,
+				const TraceServices::FTimingProfilerEvent& Event) -> TraceServices::EEventEnumerate
+			{
+				const double DurMs = (EndTime - StartTime) * 1000.0;
+				if (!FMath::IsFinite(DurMs) || DurMs < 0.0)
+				{
+					return TraceServices::EEventEnumerate::Continue;
+				}
+				const uint32 ResolvedId = ResolveTimerId(TimingProv, Event.TimerIndex, TimerCount);
+				FAgg& A = Aggregates.FindOrAdd(ResolvedId);
+				A.TotalMs += DurMs;
+				A.Count++;
+				return TraceServices::EEventEnumerate::Continue;
+			});
+	}
+
+	/**
+	 * Convert a TimerId → FAgg map into an FBridgePerfHotScope array, ranked
+	 * by TotalMs descending and capped at TopN. `TimerNames` resolves the
+	 * display name; missing entries render as `<TimerIndex N>`.
+	 */
+	static TArray<FBridgePerfHotScope> RankAndConvert(
+		const TMap<uint32, FAgg>& Aggregates,
+		const TMap<uint32, FString>& TimerNames,
+		int32 TopN)
+	{
+		TArray<TPair<uint32, FAgg>> Ranked;
+		Ranked.Reserve(Aggregates.Num());
+		for (const TPair<uint32, FAgg>& Pair : Aggregates)
+		{
+			Ranked.Emplace(Pair.Key, Pair.Value);
+		}
+		Ranked.Sort(
+			[](const TPair<uint32, FAgg>& A, const TPair<uint32, FAgg>& B)
+			{
+				return A.Value.TotalMs > B.Value.TotalMs;
+			});
+
+		const int32 ClampedTopN = FMath::Clamp(TopN, 1, 1000);
+		const int32 Take = FMath::Min(Ranked.Num(), ClampedTopN);
+		TArray<FBridgePerfHotScope> Result;
+		Result.Reserve(Take);
+		for (int32 i = 0; i < Take; ++i)
+		{
+			FBridgePerfHotScope Row;
+			const FString* NamePtr = TimerNames.Find(Ranked[i].Key);
+			Row.Name      = NamePtr ? *NamePtr : FString::Printf(TEXT("<TimerIndex %u>"), Ranked[i].Key);
+			Row.TotalMs   = Ranked[i].Value.TotalMs;
+			Row.CallCount = static_cast<int32>(Ranked[i].Value.Count);
+			Result.Add(MoveTemp(Row));
+		}
+		return Result;
+	}
+}
+
+FBridgePerfTraceSummary UUnrealBridgePerfLibrary::ParseTraceToSummary(
+	const FString& UtracePath,
+	int32 TopN,
+	int32 TopNPerThread)
 {
 	FBridgePerfTraceSummary Out;
 	Out.TracePath = UtracePath;
@@ -3027,16 +3138,21 @@ FBridgePerfTraceSummary UUnrealBridgePerfLibrary::ParseTraceToSummary(const FStr
 		}
 	}
 
-	// TimingProfiler — top-N hot scopes by total inclusive time.
+	// TimingProfiler — global CPU + GPU + per-thread hot scopes.
 	if (const TraceServices::ITimingProfilerProvider* TimingProv = TraceServices::ReadTimingProfilerProvider(*Session))
 	{
-		// Map TimerId → display name. The Reader's name pointers are only
-		// valid inside the callback, so we snapshot to FString.
+		using namespace BridgePerfTraceImpl;
+
+		// Snapshot TimerId → display name. Reader's pointers are only valid
+		// inside this callback, so we copy into FStrings. We capture
+		// `TimerCount` so the resolver outside this scope can detect
+		// bit-inverted metadata ids (TimerIndex >= TimerCount).
 		TMap<uint32, FString> TimerNames;
+		uint32 TimerCount = 0;
 		TimingProv->ReadTimers(
-			[&TimerNames](const TraceServices::ITimingProfilerTimerReader& Reader)
+			[&TimerNames, &TimerCount](const TraceServices::ITimingProfilerTimerReader& Reader)
 			{
-				const uint32 TimerCount = Reader.GetTimerCount();
+				TimerCount = Reader.GetTimerCount();
 				TimerNames.Reserve(TimerCount);
 				for (uint32 i = 0; i < TimerCount; ++i)
 				{
@@ -3048,62 +3164,108 @@ FBridgePerfTraceSummary UUnrealBridgePerfLibrary::ParseTraceToSummary(const FStr
 				}
 			});
 
-		// Walk every CPU thread timeline, accumulate per-timer total inclusive time.
-		struct FAgg
-		{
-			double  TotalMs = 0.0;
-			int64   Count   = 0;
-		};
-		TMap<uint32, FAgg> Aggregates;
-		Aggregates.Reserve(TimerNames.Num());
-
+		// ── Global CPU aggregate (every CPU timeline merged) ──
+		TMap<uint32, FAgg> CpuAggregates;
+		CpuAggregates.Reserve(TimerNames.Num());
 		TimingProv->EnumerateTimelines(
-			[&Aggregates](const TraceServices::ITimingProfilerProvider::Timeline& Timeline)
+			[&CpuAggregates, TimingProv, TimerCount](const TraceServices::ITimingProfilerProvider::Timeline& Timeline)
 			{
-				const double Start = Timeline.GetStartTime();
-				const double End   = Timeline.GetEndTime();
-				if (Start >= End) return;
-				Timeline.EnumerateEvents(Start, End,
-					[&Aggregates](double StartTime, double EndTime, uint32 /*Depth*/, const TraceServices::FTimingProfilerEvent& Event) -> TraceServices::EEventEnumerate
+				AccumulateTimeline(TimingProv, TimerCount, Timeline, CpuAggregates);
+			});
+		Out.HotScopes = RankAndConvert(CpuAggregates, TimerNames, TopN);
+
+		// ── M5-2: per-thread aggregate ──
+		// Skipped when caller passes TopNPerThread=0 — saves time + memory on
+		// huge traces where only the global picture matters.
+		if (TopNPerThread > 0)
+		{
+			const int32 ClampedTopNPerThread = FMath::Clamp(TopNPerThread, 1, 200);
+			const TraceServices::IThreadProvider& ThreadProv = TraceServices::ReadThreadProvider(*Session);
+
+			ThreadProv.EnumerateThreads(
+				[&Out, &TimingProv, &TimerNames, TimerCount, ClampedTopNPerThread](const TraceServices::FThreadInfo& Thread)
+				{
+					uint32 TimelineIdx = ~0u;
+					if (!TimingProv->GetCpuThreadTimelineIndex(Thread.Id, TimelineIdx))
 					{
-						const double DurMs = (EndTime - StartTime) * 1000.0;
-						// Skip events still open at trace stop (EndTime ~= +inf
-						// or huge sentinel) — they'd swallow the aggregation.
-						if (!FMath::IsFinite(DurMs) || DurMs < 0.0)
+						return; // Thread emitted no CPU timing events.
+					}
+
+					TMap<uint32, FAgg> ThreadAgg;
+					TimingProv->ReadTimeline(TimelineIdx,
+						[&ThreadAgg, TimingProv, TimerCount](const TraceServices::ITimingProfilerProvider::Timeline& Timeline)
 						{
-							return TraceServices::EEventEnumerate::Continue;
-						}
-						FAgg& A = Aggregates.FindOrAdd(Event.TimerIndex);
-						A.TotalMs += DurMs;
-						A.Count++;
-						return TraceServices::EEventEnumerate::Continue;
-					});
-			});
+							AccumulateTimeline(TimingProv, TimerCount, Timeline, ThreadAgg);
+						});
 
-		// Rank descending by TotalMs and keep top-N.
-		TArray<TPair<uint32, FAgg>> Ranked;
-		Ranked.Reserve(Aggregates.Num());
-		for (const TPair<uint32, FAgg>& Pair : Aggregates)
-		{
-			Ranked.Emplace(Pair.Key, Pair.Value);
+					if (ThreadAgg.Num() == 0)
+					{
+						return;
+					}
+
+					FBridgePerThreadHotScopes Row;
+					Row.ThreadName = Thread.Name ? FString(Thread.Name) : FString();
+					Row.GroupName  = Thread.GroupName ? FString(Thread.GroupName) : FString();
+					Row.ThreadId   = static_cast<int64>(Thread.Id);
+					double Sum = 0.0;
+					for (const TPair<uint32, FAgg>& P : ThreadAgg)
+					{
+						Sum += P.Value.TotalMs;
+					}
+					Row.TotalCpuMs = Sum;
+					Row.TopScopes  = RankAndConvert(ThreadAgg, TimerNames, ClampedTopNPerThread);
+					Out.PerThreadHotScopes.Add(MoveTemp(Row));
+				});
+
+			Out.PerThreadHotScopes.Sort(
+				[](const FBridgePerThreadHotScopes& A, const FBridgePerThreadHotScopes& B)
+				{
+					return A.TotalCpuMs > B.TotalCpuMs;
+				});
 		}
-		Ranked.Sort(
-			[](const TPair<uint32, FAgg>& A, const TPair<uint32, FAgg>& B)
-			{
-				return A.Value.TotalMs > B.Value.TotalMs;
-			});
 
-		const int32 ClampedTopN = FMath::Clamp(TopN, 1, 1000);
-		const int32 Take = FMath::Min(Ranked.Num(), ClampedTopN);
-		Out.HotScopes.Reserve(Take);
-		for (int32 i = 0; i < Take; ++i)
+		// ── M5-1: GPU hot scopes (every GPU queue merged into one ranking) ──
+		if (TimingProv->HasGpuTiming())
 		{
-			FBridgePerfHotScope Row;
-			const FString* NamePtr = TimerNames.Find(Ranked[i].Key);
-			Row.Name      = NamePtr ? *NamePtr : FString::Printf(TEXT("<TimerIndex %u>"), Ranked[i].Key);
-			Row.TotalMs   = Ranked[i].Value.TotalMs;
-			Row.CallCount = static_cast<int32>(Ranked[i].Value.Count);
-			Out.HotScopes.Add(MoveTemp(Row));
+			TMap<uint32, FAgg> GpuAggregates;
+			TArray<uint32> GpuTimelineIndices;
+			TimingProv->EnumerateGpuQueues(
+				[&GpuTimelineIndices](const TraceServices::FGpuQueueInfo& Queue)
+				{
+					if (Queue.TimelineIndex != ~0u)
+					{
+						GpuTimelineIndices.Add(Queue.TimelineIndex);
+					}
+					if (Queue.WorkTimelineIndex != ~0u)
+					{
+						GpuTimelineIndices.Add(Queue.WorkTimelineIndex);
+					}
+				});
+
+			// Old-style GPU timelines (back-compat path — populated when the
+			// trace came from an older runtime that didn't emit GPU queue
+			// metadata yet). EnumerateGpuQueues returns empty in that case.
+			uint32 LegacyGpu1 = ~0u;
+			uint32 LegacyGpu2 = ~0u;
+			if (TimingProv->GetGpuTimelineIndex(LegacyGpu1))
+			{
+				GpuTimelineIndices.AddUnique(LegacyGpu1);
+			}
+			if (TimingProv->GetGpu2TimelineIndex(LegacyGpu2))
+			{
+				GpuTimelineIndices.AddUnique(LegacyGpu2);
+			}
+
+			for (uint32 Idx : GpuTimelineIndices)
+			{
+				TimingProv->ReadTimeline(Idx,
+					[&GpuAggregates, TimingProv, TimerCount](const TraceServices::ITimingProfilerProvider::Timeline& Timeline)
+					{
+						AccumulateTimeline(TimingProv, TimerCount, Timeline, GpuAggregates);
+					});
+			}
+
+			Out.GpuHotScopes = RankAndConvert(GpuAggregates, TimerNames, TopN);
 		}
 	}
 

@@ -16,7 +16,7 @@ structural rather than mnemonic.
 
 import unreal
 
-_GENERATED_AT = '2026-05-08T15:25:28+00:00'
+_GENERATED_AT = '2026-05-08T16:16:01+00:00'
 _UE_VERSION = '5.7.1-48512491+++UE5+Release-5.7'
 
 class Anim:
@@ -4703,9 +4703,9 @@ class Perf:
         return unreal.UnrealBridgePerfLibrary.list_trace_channels()
 
     @staticmethod
-    def parse_trace_to_summary(*, utrace_path, top_n=20):
-        """X.parse_trace_to_summary(utrace_path, top_n=20) -> BridgePerfTraceSummary"""
-        return unreal.UnrealBridgePerfLibrary.parse_trace_to_summary(utrace_path, top_n)
+    def parse_trace_to_summary(*, utrace_path, top_n=20, top_n_per_thread=10):
+        """X.parse_trace_to_summary(utrace_path, top_n=20, top_n_per_thread=10) -> BridgePerfTraceSummary"""
+        return unreal.UnrealBridgePerfLibrary.parse_trace_to_summary(utrace_path, top_n, top_n_per_thread)
 
     @staticmethod
     def reset_frame_time_histogram():

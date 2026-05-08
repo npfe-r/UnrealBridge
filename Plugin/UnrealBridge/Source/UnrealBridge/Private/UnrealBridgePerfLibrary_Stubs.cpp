@@ -21,7 +21,10 @@ FBridgeNaniteStats UUnrealBridgePerfLibrary::GetNaniteStats()
 	return FBridgeNaniteStats{};
 }
 
-FBridgePerfTraceSummary UUnrealBridgePerfLibrary::ParseTraceToSummary(const FString& UtracePath, int32 TopN)
+FBridgePerfTraceSummary UUnrealBridgePerfLibrary::ParseTraceToSummary(
+	const FString& UtracePath,
+	int32 TopN,
+	int32 TopNPerThread)
 {
 	UE_LOG(LogTemp, Warning, TEXT("UUnrealBridgePerfLibrary::ParseTraceToSummary requires UE 5.7+ — call ignored on this engine version"));
 	return FBridgePerfTraceSummary{};

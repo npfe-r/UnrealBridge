@@ -161,6 +161,91 @@ for row in s.u_objects.top_classes[:5]:
 
 ---
 
+## parse_trace_to_summary(utrace_path, top_n=20, top_n_per_thread=10) -> FBridgePerfTraceSummary
+
+Parse a `.utrace` file (output of `start_trace_capture` / `stop_trace_capture` or `Trace.Start File=…` console command) into a structured summary. Wraps `TraceServices::IAnalysisService::Analyze` synchronously, then walks the diagnostics + frame + timing-profiler + thread providers.
+
+### Top-level fields
+
+| Field | Type | Notes |
+|---|---|---|
+| `trace_path` | str | Echoed back. |
+| `file_size_bytes` | int64 | OS-reported size of the `.utrace` file. |
+| `platform` / `app_name` / `project_name` / `build_version` | str | From the `IDiagnosticsProvider`. |
+| `changelist` | int32 | 0 if unknown. |
+| `total_duration_seconds` | double | Sum of all valid Game frame durations. |
+| `game_frame_count` | int32 | Number of valid Game frames. |
+| `frame_avg_ms` / `frame_min_ms` / `frame_max_ms` | float | Per-frame stats over Game frames only. |
+| `hot_scopes` | array of `FBridgePerfHotScope` | Top-N CPU timers across **all** CPU thread timelines, ranked by total inclusive time desc. |
+| `gpu_hot_scopes` | array of `FBridgePerfHotScope` | **(M5-1)** Top-N GPU timers across every GPU queue (incl. legacy GPU1/GPU2 timelines for old traces). Empty when the trace did not include the `gpu` channel. |
+| `per_thread_hot_scopes` | array of `FBridgePerThreadHotScopes` | **(M5-2)** One row per CPU thread (`GameThread`, `RenderThread N`, `RHIThread`, every `WorkerThread`, `FAssetDataGatherer`, …). Sorted by `total_cpu_ms` desc. |
+| `success` | bool | True on full success; on any failure the call returns with `success=False` + populated `error`. |
+| `error` | str | Human-readable failure reason. |
+
+### `FBridgePerfHotScope` row
+
+| Field | Type | Notes |
+|---|---|---|
+| `name` | str | Timer name as registered (e.g. `RenderGraphExecute`, `FEngineLoop::Tick`). Bit-inverted metadata-tagged events are resolved back via `GetOriginalTimerIdFromMetadata`, so events with per-instance metadata collapse onto their canonical timer. |
+| `total_ms` | double | Sum of inclusive time across every invocation. |
+| `call_count` | int32 | Number of times the scope opened during the trace. |
+
+### `FBridgePerThreadHotScopes` row
+
+| Field | Type | Notes |
+|---|---|---|
+| `thread_name` | str | OS thread name (e.g. `"GameThread"`, `"RenderThread 0"`, `"Background Worker #24"`). |
+| `group_name` | str | Engine thread group (`"Render"`, `"Background Workers"`, …). Empty for unknown. |
+| `thread_id` | int64 | OS thread id. |
+| `total_cpu_ms` | double | Sum of every scope's inclusive time on this thread. |
+| `top_scopes` | array of `FBridgePerfHotScope` | Top-N scopes on this thread (capped at `top_n_per_thread`). |
+
+### Parameters
+
+- `utrace_path` (str): absolute path to a `.utrace` file. File must exist.
+- `top_n` (int32): cap on `hot_scopes` and `gpu_hot_scopes` rows (clamped to `[1, 1000]`).
+- `top_n_per_thread` (int32): cap on `top_scopes` per `per_thread_hot_scopes` row (clamped to `[1, 200]`). Pass **0 to skip the per-thread aggregation entirely** — saves time + memory on huge traces when only the global picture matters.
+
+### Cost
+
+Dominated by `Analyze()` — typically 1-10s per 100 MB of trace. Synchronous, blocks the bridge exec; for large traces, expect tens of seconds (see `feedback_bridge_exec_holds_gamethread`).
+
+### Channel requirements
+
+| Want | Need channel |
+|---|---|
+| Frame stats | `frame` |
+| `hot_scopes` + `per_thread_hot_scopes` | `cpu` |
+| `gpu_hot_scopes` | `gpu` |
+
+### Example
+
+```python
+import unreal
+s = unreal.UnrealBridgePerfLibrary.parse_trace_to_summary(
+    r"D:\Captures\my_session.utrace", top_n=20, top_n_per_thread=10)
+
+print(f"frames={s.game_frame_count}  avg={s.frame_avg_ms:.2f}ms  worst={s.frame_max_ms:.0f}ms")
+
+print("== top GPU hot scopes ==")
+for r in s.gpu_hot_scopes:
+    print(f"  {r.name:50s} {r.total_ms:8.1f} ms ({r.call_count})")
+
+print("== thread breakdown ==")
+for t in s.per_thread_hot_scopes[:5]:
+    print(f"{t.thread_name} ({t.group_name})  total={t.total_cpu_ms:.0f} ms")
+    for r in t.top_scopes[:3]:
+        print(f"   - {r.name:48s} {r.total_ms:7.1f} ms")
+```
+
+### Pitfalls
+
+- The trace must include the relevant channels at capture time. `gpu_hot_scopes` empty? Re-capture with `gpu` in the channel list.
+- Events with metadata (e.g. `SlateUI Title = %s`) are collapsed to their canonical timer; per-instance breakdown is not reported.
+- `total_cpu_ms` aggregates *inclusive* time per scope — adding rows across threads will overcount nested scopes.
+
+---
+
 ## Cookbook
 
 ### Compare two points in time
