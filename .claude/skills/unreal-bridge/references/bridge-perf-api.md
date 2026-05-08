@@ -220,6 +220,38 @@ for row in s.u_objects.top_classes[:5]:
 
 ---
 
+## get_texture_streaming_residency(top_n=30) -> FBridgeTextureStreamingState
+
+**(M7-1)** Top-N streaming textures by resident GPU bytes + global pool stats. Walks every UTexture2D via `TObjectIterator` on the GameThread; reads `GetStreamableResourceState()` for resident / wanted / max LOD counts and walks `PlatformData->Mips[*].BulkData` for cumulative byte sizes. Pool stats come from `IRenderAssetStreamingManager`.
+
+| Top-level field | Type | Notes |
+|---|---|---|
+| `enabled` | bool | Project-wide streaming enabled (`r.TextureStreaming`). |
+| `pool_size_bytes` | int64 | Streaming-pool budget. |
+| `required_pool_bytes` | int64 | Bytes the streamer would consume with no pool limit. |
+| `memory_over_budget_bytes` | int64 | Positive = streamer over budget. |
+| `max_ever_required_bytes` | int64 | Peak required since last reset. |
+| `num_streaming_textures` | int32 | Total streaming UTexture2D walked. |
+| `rows` | array of `FBridgeTextureStreamingRow` | Top-N by `resident_bytes` desc. |
+
+### `FBridgeTextureStreamingRow`
+
+| Field | Type | Notes |
+|---|---|---|
+| `texture_path` | str | Asset path (e.g. `"/Game/.../T_Foo"`). |
+| `resident_mip_count` / `wanted_mip_count` / `max_mip_count` | int32 | LOD counts. `resident < wanted` indicates not-yet-streamed-in. |
+| `resident_bytes` / `wanted_bytes` | int64 | Cumulative mip bytes. Computed from `PlatformData->Mips[*].BulkData.GetBulkDataSize()`; falls back to `GetResourceSizeBytes(EstimatedTotal)` for textures whose data lives in DDC only. |
+| `last_visible_seconds` | float | `app_time - GetLastRenderTimeForStreaming`. `FLT_MAX` = always-resident. |
+| `force_resident` | bool | True when force-resident is set (cinematic / manual override). |
+
+**Cost** — 5-50 ms depending on UTexture2D population. GameThread-only.
+
+**Pitfalls**
+- In the editor, BulkData for streamed mips often lives in DDC and the in-memory size is small. The fallback to `GetResourceSizeBytes` covers the common case but the absolute byte numbers are most accurate in cooked builds.
+- `last_visible_seconds = FLT_MAX` means the texture isn't tracked by the streamer (always-resident or non-streamable), not "never visible".
+
+---
+
 ## get_frame_time_percentiles(percentiles) -> array of float
 
 **(M5-4)** Compute percentile frame times from the always-on internal frame-time histogram. The histogram is populated by an `OnEndFrame` hook that has been recording every frame since module load (see `reset_frame_time_histogram` to baseline before a measurement window).

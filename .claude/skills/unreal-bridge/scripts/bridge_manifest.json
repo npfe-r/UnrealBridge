@@ -31,7 +31,7 @@
       "TIMER"
     ]
   },
-  "generated_at": "2026-05-08T16:42:48+00:00",
+  "generated_at": "2026-05-08T16:47:57+00:00",
   "libraries": {
     "UnrealBridgeAnimLibrary": {
       "functions": {
@@ -17550,6 +17550,18 @@
           ],
           "returns": "Array[BridgePerfBreakdownRow]"
         },
+        "get_texture_streaming_residency": {
+          "doc": "X.get_texture_streaming_residency(top_n=30) -> BridgeTextureStreamingState",
+          "params": [
+            {
+              "default": "30",
+              "has_default": true,
+              "name": "top_n",
+              "type": ""
+            }
+          ],
+          "returns": "BridgeTextureStreamingState"
+        },
         "get_trace_state": {
           "doc": "X.get_trace_state() -> BridgeTraceState",
           "params": [],
@@ -21443,6 +21455,25 @@
       "resource_size_bytes",
       "srgb",
       "width"
+    ],
+    "BridgeTextureStreamingRow": [
+      "force_resident",
+      "last_visible_seconds",
+      "max_mip_count",
+      "resident_bytes",
+      "resident_mip_count",
+      "texture_path",
+      "wanted_bytes",
+      "wanted_mip_count"
+    ],
+    "BridgeTextureStreamingState": [
+      "enabled",
+      "max_ever_required_bytes",
+      "memory_over_budget_bytes",
+      "num_streaming_textures",
+      "pool_size_bytes",
+      "required_pool_bytes",
+      "rows"
     ],
     "BridgeTimelineInfo": [
       "auto_play",

@@ -43,4 +43,10 @@ FBridgePerfNetSummary UUnrealBridgePerfLibrary::ParseNetTraceToSummary(const FSt
 	return FBridgePerfNetSummary{};
 }
 
+FBridgeTextureStreamingState UUnrealBridgePerfLibrary::GetTextureStreamingResidency(int32 TopN)
+{
+	UE_LOG(LogTemp, Warning, TEXT("UUnrealBridgePerfLibrary::GetTextureStreamingResidency requires UE 5.7+ — call ignored on this engine version"));
+	return FBridgeTextureStreamingState{};
+}
+
 #endif // UE_VERSION_OLDER_THAN(5, 7, 0)

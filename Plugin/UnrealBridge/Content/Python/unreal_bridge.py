@@ -16,7 +16,7 @@ structural rather than mnemonic.
 
 import unreal
 
-_GENERATED_AT = '2026-05-08T16:42:48+00:00'
+_GENERATED_AT = '2026-05-08T16:47:57+00:00'
 _UE_VERSION = '5.7.1-48512491+++UE5+Release-5.7'
 
 class Anim:
@@ -4676,6 +4676,11 @@ class Perf:
     def get_texture_memory_breakdown(*, group_by, mode="disk", max_groups=50):
         """X.get_texture_memory_breakdown(group_by, mode="disk", max_groups=50) -> Array[BridgePerfBreakdownRow]"""
         return unreal.UnrealBridgePerfLibrary.get_texture_memory_breakdown(group_by, mode, max_groups)
+
+    @staticmethod
+    def get_texture_streaming_residency(*, top_n=30):
+        """X.get_texture_streaming_residency(top_n=30) -> BridgeTextureStreamingState"""
+        return unreal.UnrealBridgePerfLibrary.get_texture_streaming_residency(top_n)
 
     @staticmethod
     def get_trace_state():

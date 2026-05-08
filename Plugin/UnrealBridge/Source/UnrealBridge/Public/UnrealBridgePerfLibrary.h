@@ -901,7 +901,78 @@ struct FBridgePerfNetGameInstance
 	TArray<FBridgePerfNetConnection> Connections;
 };
 
-/** Result of `parse_net_trace_to_summary` (M6-2). */
+/** One streaming-texture row (M7-1). */
+USTRUCT(BlueprintType)
+struct FBridgeTextureStreamingRow
+{
+	GENERATED_BODY()
+
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Perf")
+	FString TexturePath;
+
+	/** Number of LODs (mips) currently resident in GPU memory. */
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Perf")
+	int32 ResidentMipCount = 0;
+
+	/** Number of LODs the streamer wants to be resident after the next update. */
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Perf")
+	int32 WantedMipCount = 0;
+
+	/** Total LOD count available on the asset. */
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Perf")
+	int32 MaxMipCount = 0;
+
+	/** Resident GPU memory for this texture, bytes. From `CalcCumulativeLODSize(NumResidentLODs)`. */
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Perf")
+	int64 ResidentBytes = 0;
+
+	/** Bytes the streamer would consume if all wanted LODs were paged in. */
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Perf")
+	int64 WantedBytes = 0;
+
+	/** `FApp::GetCurrentTime()` value of the last frame this texture was rendered. FLT_MAX = never (always-resident). */
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Perf")
+	float LastVisibleSeconds = 0.f;
+
+	/** True when force-resident is set (cinematic / manual override). */
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Perf")
+	bool bForceResident = false;
+};
+
+/** Result of `get_texture_streaming_residency` (M7-1). */
+USTRUCT(BlueprintType)
+struct FBridgeTextureStreamingState
+{
+	GENERATED_BODY()
+
+	/** True when texture streaming is enabled in the project (`r.TextureStreaming` etc.). */
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Perf")
+	bool bEnabled = false;
+
+	/** Streaming-pool budget, bytes. */
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Perf")
+	int64 PoolSizeBytes = 0;
+
+	/** Bytes the streamer would consume if there were no pool limit. */
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Perf")
+	int64 RequiredPoolBytes = 0;
+
+	/** Positive when the streamer is over its budget. */
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Perf")
+	int64 MemoryOverBudgetBytes = 0;
+
+	/** Peak required budget observed since the last reset. */
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Perf")
+	int64 MaxEverRequiredBytes = 0;
+
+	/** Total streaming UTexture2D objects observed during the GT walk. */
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Perf")
+	int32 NumStreamingTextures = 0;
+
+	/** Top-N rows ranked by `ResidentBytes` desc. */
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Perf")
+	TArray<FBridgeTextureStreamingRow> Rows;
+};
 USTRUCT(BlueprintType)
 struct FBridgePerfNetSummary
 {
@@ -1608,4 +1679,23 @@ public:
 	 */
 	UFUNCTION(BlueprintCallable, Category = "UnrealBridge|Perf")
 	static FBridgePerfNetSummary ParseNetTraceToSummary(const FString& UtracePath);
+
+	/**
+	 * Top-N streaming textures by resident GPU bytes (M7-1). Walks every
+	 * UTexture2D via TObjectIterator on the GameThread; for each streamable
+	 * texture reads `GetStreamableResourceState()` for resident / wanted /
+	 * max LOD counts, calls `CalcCumulativeLODSize` to convert mip counts to
+	 * bytes, and bundles in pool stats from `IRenderAssetStreamingManager`
+	 * (pool size, required pool, over-budget, max-ever-required).
+	 *
+	 * Use this to find textures that aren't fully streamed in
+	 * (`resident_mip_count < wanted_mip_count`) when chasing "why is my
+	 * texture blurry" or "why is the streamer over budget".
+	 *
+	 * Cost: 5-50 ms depending on UTexture2D population. GameThread-only.
+	 *
+	 * @param TopN  Cap on row count (1..1000). Clamped.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "UnrealBridge|Perf")
+	static FBridgeTextureStreamingState GetTextureStreamingResidency(int32 TopN = 30);
 };

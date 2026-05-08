@@ -3014,6 +3014,10 @@ TArray<FBridgeTraceChannelInfo> UUnrealBridgePerfLibrary::ListTraceChannels()
 #include "TraceServices/Model/AllocationsProvider.h"
 #include "TraceServices/Model/NetProfiler.h"
 #include "TraceServices/Containers/Tables.h"
+#include "Engine/Texture2D.h"
+#include "Engine/StreamableRenderAsset.h"
+#include "ContentStreaming.h"
+#include "TextureResource.h"
 #include "ProfilingDebugging/MiscTrace.h"  // ETraceFrameType
 
 namespace BridgePerfTraceImpl
@@ -3757,6 +3761,104 @@ FBridgePerfNetSummary UUnrealBridgePerfLibrary::ParseNetTraceToSummary(const FSt
 		});
 
 	Out.bSuccess = true;
+	return Out;
+}
+
+// ─── M7-1 GetTextureStreamingResidency ───────────────────────────
+
+FBridgeTextureStreamingState UUnrealBridgePerfLibrary::GetTextureStreamingResidency(int32 TopN)
+{
+	FBridgeTextureStreamingState Out;
+	const int32 ClampedTopN = FMath::Clamp(TopN, 1, 1000);
+
+	// IStreamingManager::Get() returns the FStreamingManagerCollection singleton
+	// which is the concrete owner of texture-streaming accessors; the base
+	// IStreamingManager interface doesn't expose them.
+	FStreamingManagerCollection& Mgr = IStreamingManager::Get();
+	Out.bEnabled = Mgr.IsTextureStreamingEnabled();
+
+	IRenderAssetStreamingManager& RAS = Mgr.GetRenderAssetStreamingManager();
+	Out.PoolSizeBytes          = RAS.GetPoolSize();
+	Out.RequiredPoolBytes      = RAS.GetRequiredPoolSize();
+	Out.MemoryOverBudgetBytes  = RAS.GetMemoryOverBudget();
+	Out.MaxEverRequiredBytes   = RAS.GetMaxEverRequired();
+
+	const double NowSeconds = FApp::GetCurrentTime();
+
+	TArray<FBridgeTextureStreamingRow> AllRows;
+	AllRows.Reserve(2048);
+
+	for (TObjectIterator<UTexture2D> It; It; ++It)
+	{
+		UTexture2D* Tex = *It;
+		if (!Tex || !Tex->IsStreamable())
+		{
+			continue;
+		}
+		++Out.NumStreamingTextures;
+
+		const FStreamableRenderResourceState& S = Tex->GetStreamableResourceState();
+		if (S.MaxNumLODs == 0)
+		{
+			continue;
+		}
+
+		FBridgeTextureStreamingRow Row;
+		Row.TexturePath       = Tex->GetPathName();
+		Row.ResidentMipCount  = S.NumResidentLODs;
+		Row.WantedMipCount    = S.NumRequestedLODs;
+		Row.MaxMipCount       = S.MaxNumLODs;
+		// `UTexture2D::CalcTextureMemorySize` is unexported in UE 5.7 — calling
+		// CalcCumulativeLODSize from an external module fails to link. Walk the
+		// PlatformData mip array directly: cumulative mip bytes from the
+		// smallest-up to NumResidentLODs / NumRequestedLODs.
+		int64 ResidentBytes = 0;
+		int64 WantedBytes   = 0;
+		if (const FTexturePlatformData* PD = Tex->GetPlatformData())
+		{
+			const int32 NumMips = PD->Mips.Num();
+			// Resident mips are indices [NumMips - NumResidentLODs, NumMips - 1].
+			const int32 ResidentFirst = FMath::Max(0, NumMips - S.NumResidentLODs);
+			const int32 WantedFirst   = FMath::Max(0, NumMips - S.NumRequestedLODs);
+			for (int32 i = ResidentFirst; i < NumMips; ++i)
+			{
+				ResidentBytes += PD->Mips[i].BulkData.GetBulkDataSize();
+			}
+			for (int32 i = WantedFirst; i < NumMips; ++i)
+			{
+				WantedBytes += PD->Mips[i].BulkData.GetBulkDataSize();
+			}
+		}
+		// Fallback: if PlatformData mip walk produced 0 (cooked/streaming texture
+		// whose serialized size landed elsewhere), use the UObject resource size.
+		if (ResidentBytes == 0)
+		{
+			ResidentBytes = static_cast<int64>(Tex->GetResourceSizeBytes(EResourceSizeMode::EstimatedTotal));
+			WantedBytes   = ResidentBytes;
+		}
+		Row.ResidentBytes     = ResidentBytes;
+		Row.WantedBytes       = WantedBytes;
+		const float LastRender = Tex->GetLastRenderTimeForStreaming();
+		Row.LastVisibleSeconds = (LastRender == FLT_MAX)
+			? FLT_MAX
+			: static_cast<float>(NowSeconds - static_cast<double>(LastRender));
+		Row.bForceResident    = Tex->ShouldMipLevelsBeForcedResident();
+		AllRows.Add(MoveTemp(Row));
+	}
+
+	AllRows.Sort(
+		[](const FBridgeTextureStreamingRow& A, const FBridgeTextureStreamingRow& B)
+		{
+			return A.ResidentBytes > B.ResidentBytes;
+		});
+
+	const int32 Take = FMath::Min(AllRows.Num(), ClampedTopN);
+	Out.Rows.Reserve(Take);
+	for (int32 i = 0; i < Take; ++i)
+	{
+		Out.Rows.Add(MoveTemp(AllRows[i]));
+	}
+
 	return Out;
 }
 #endif // !UE_VERSION_OLDER_THAN(5, 7, 0) — pre-5.7 path lives in UnrealBridgePerfLibrary_Stubs.cpp
