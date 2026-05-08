@@ -1176,6 +1176,74 @@ struct FBridgeTextureStreamingState
 	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Perf")
 	TArray<FBridgeTextureStreamingRow> Rows;
 };
+/** One cooked-package row (M6-3). */
+USTRUCT(BlueprintType)
+struct FBridgePerfCookRow
+{
+	GENERATED_BODY()
+
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Perf")
+	FString PackageName;
+
+	/** Top-level asset class for the package (e.g. "Texture2D", "Material"). */
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Perf")
+	FString AssetClass;
+
+	/** Sum of every cooker phase, ms. Use to rank "which packages took longest to cook". */
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Perf")
+	double TotalCookTimeMs = 0.0;
+
+	/** Inclusive `LoadPackage` time. */
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Perf")
+	double LoadTimeMs = 0.0;
+
+	/** Inclusive `SavePackage` time. */
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Perf")
+	double SaveTimeMs = 0.0;
+
+	/** Inclusive `BeginCacheForCookedPlatformData` time (typically dominated by shader / derived-data cache). */
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Perf")
+	double BeginCacheCookedPlatformDataMs = 0.0;
+
+	/** Inclusive `IsCachedCookedPlatformDataLoaded` poll time. */
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Perf")
+	double IsCachedCookedPlatformDataLoadedMs = 0.0;
+};
+
+/** Result of `parse_cook_trace_to_summary` (M6-3). */
+USTRUCT(BlueprintType)
+struct FBridgePerfCookSummary
+{
+	GENERATED_BODY()
+
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Perf")
+	FString TracePath;
+
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Perf")
+	int64 FileSizeBytes = 0;
+
+	/** True when the cook profiler provider returned ≥ 1 package. */
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Perf")
+	bool bHasEvents = false;
+
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Perf")
+	int32 PackageCount = 0;
+
+	/** Sum of every package's `TotalCookTimeMs`, in seconds. */
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Perf")
+	double TotalCookTimeSeconds = 0.0;
+
+	/** Top-N packages by `TotalCookTimeMs` desc. */
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Perf")
+	TArray<FBridgePerfCookRow> Packages;
+
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Perf")
+	bool bSuccess = false;
+
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Perf")
+	FString Error;
+};
+
 USTRUCT(BlueprintType)
 struct FBridgePerfNetSummary
 {
@@ -1949,4 +2017,23 @@ public:
 	 */
 	UFUNCTION(BlueprintCallable, Category = "UnrealBridge|Perf")
 	static FBridgeAllMaterialsAnalysis AnalyzeAllMaterials(int32 TopN = 30);
+
+	/**
+	 * Parse a `.utrace` file's cook profiler data (M6-3). Trace must contain
+	 * the `cook` channel — captured by passing `-trace=cook,...` to the
+	 * cooker (`UnrealEditor-Cmd.exe -run=Cook ... -trace=cook`).
+	 *
+	 * Walks `ICookProfilerProvider::CreateAggregation` to get per-package
+	 * timing rows: load + save + BeginCacheForCookedPlatformData + IsCached*
+	 * (the four cooker phases). Returns top-N by total cook time desc.
+	 *
+	 * Used to attribute "4-hour cook" — typically dominated by shader
+	 * compilation hidden inside `BeginCacheForCookedPlatformData` for
+	 * Material-class packages.
+	 *
+	 * @param UtracePath  Absolute path to a `.utrace` file. Must exist.
+	 * @param TopN        Cap on rows (1..1000). Clamped.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "UnrealBridge|Perf")
+	static FBridgePerfCookSummary ParseCookTraceToSummary(const FString& UtracePath, int32 TopN = 50);
 };

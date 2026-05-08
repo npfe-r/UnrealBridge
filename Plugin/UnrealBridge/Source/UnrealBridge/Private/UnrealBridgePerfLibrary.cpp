@@ -3013,6 +3013,7 @@ TArray<FBridgeTraceChannelInfo> UUnrealBridgePerfLibrary::ListTraceChannels()
 #include "TraceServices/Model/Counters.h"
 #include "TraceServices/Model/AllocationsProvider.h"
 #include "TraceServices/Model/NetProfiler.h"
+#include "TraceServices/Model/CookProfilerProvider.h"
 #include "TraceServices/Containers/Tables.h"
 #include "Engine/Texture2D.h"
 #include "Engine/TextureRenderTarget.h"
@@ -4009,6 +4010,106 @@ FBridgeGpuPassTimings UUnrealBridgePerfLibrary::GetPerPassGpuTimings()
 	Out.Diagnostic = TEXT("RHI_NEW_GPU_PROFILER active or HAS_GPU_STATS off — use Insights with gpu+rdg channels");
 #endif
 
+	return Out;
+}
+
+// ─── M6-3 ParseCookTraceToSummary ────────────────────────────────
+
+FBridgePerfCookSummary UUnrealBridgePerfLibrary::ParseCookTraceToSummary(const FString& UtracePath, int32 TopN)
+{
+	FBridgePerfCookSummary Out;
+	Out.TracePath = UtracePath;
+
+	IFileManager& FileMgr = IFileManager::Get();
+	if (!FileMgr.FileExists(*UtracePath))
+	{
+		Out.Error = FString::Printf(TEXT("trace file not found: %s"), *UtracePath);
+		return Out;
+	}
+	Out.FileSizeBytes = FileMgr.FileSize(*UtracePath);
+	if (Out.FileSizeBytes <= 0)
+	{
+		Out.Error = FString::Printf(TEXT("trace file empty or unreadable: %s"), *UtracePath);
+		return Out;
+	}
+
+	ITraceServicesModule* TSModule = FModuleManager::LoadModulePtr<ITraceServicesModule>("TraceServices");
+	if (!TSModule)
+	{
+		Out.Error = TEXT("TraceServices module load failed");
+		return Out;
+	}
+	TSharedPtr<TraceServices::IAnalysisService> AnalysisService = TSModule->GetAnalysisService();
+	if (!AnalysisService)
+	{
+		Out.Error = TEXT("TraceServices::IAnalysisService unavailable");
+		return Out;
+	}
+	TSharedPtr<const TraceServices::IAnalysisSession> Session = AnalysisService->Analyze(*UtracePath);
+	if (!Session.IsValid())
+	{
+		Out.Error = TEXT("Analyze() returned null session — trace probably malformed");
+		return Out;
+	}
+	TraceServices::FAnalysisSessionReadScope ReadScope(*Session);
+
+	const TraceServices::ICookProfilerProvider* CookProv = TraceServices::ReadCookProfilerProvider(*Session);
+	if (!CookProv)
+	{
+		Out.Error = TEXT("CookProfilerProvider unavailable — trace lacks cook channel");
+		Out.bSuccess = true;
+		return Out;
+	}
+
+	CookProv->BeginRead();
+	ON_SCOPE_EXIT { CookProv->EndRead(); };
+
+	Out.PackageCount = static_cast<int32>(CookProv->GetNumPackages());
+	if (Out.PackageCount == 0)
+	{
+		Out.bSuccess = true;
+		return Out;
+	}
+
+	Out.bHasEvents = true;
+
+	TArray64<TraceServices::FPackageData> Aggregation;
+	CookProv->CreateAggregation(Aggregation);
+
+	TArray<FBridgePerfCookRow> Rows;
+	Rows.Reserve(static_cast<int32>(Aggregation.Num()));
+	double GrandTotalMs = 0.0;
+	for (const TraceServices::FPackageData& P : Aggregation)
+	{
+		FBridgePerfCookRow R;
+		R.PackageName = P.Name        ? FString(P.Name)        : FString();
+		R.AssetClass  = P.AssetClass  ? FString(P.AssetClass)  : FString();
+		R.LoadTimeMs                              = P.LoadTimeIncl                              * 1000.0;
+		R.SaveTimeMs                              = P.SaveTimeIncl                              * 1000.0;
+		R.BeginCacheCookedPlatformDataMs          = P.BeginCacheForCookedPlatformDataIncl       * 1000.0;
+		R.IsCachedCookedPlatformDataLoadedMs      = P.IsCachedCookedPlatformDataLoadedIncl      * 1000.0;
+		R.TotalCookTimeMs = R.LoadTimeMs + R.SaveTimeMs + R.BeginCacheCookedPlatformDataMs + R.IsCachedCookedPlatformDataLoadedMs;
+		GrandTotalMs += R.TotalCookTimeMs;
+		Rows.Add(MoveTemp(R));
+	}
+
+	Out.TotalCookTimeSeconds = GrandTotalMs / 1000.0;
+
+	Rows.Sort(
+		[](const FBridgePerfCookRow& A, const FBridgePerfCookRow& B)
+		{
+			return A.TotalCookTimeMs > B.TotalCookTimeMs;
+		});
+
+	const int32 ClampedTopN = FMath::Clamp(TopN, 1, 1000);
+	const int32 Take = FMath::Min(Rows.Num(), ClampedTopN);
+	Out.Packages.Reserve(Take);
+	for (int32 i = 0; i < Take; ++i)
+	{
+		Out.Packages.Add(MoveTemp(Rows[i]));
+	}
+
+	Out.bSuccess = true;
 	return Out;
 }
 

@@ -16,7 +16,7 @@ structural rather than mnemonic.
 
 import unreal
 
-_GENERATED_AT = '2026-05-08T17:00:45+00:00'
+_GENERATED_AT = '2026-05-08T17:05:20+00:00'
 _UE_VERSION = '5.7.1-48512491+++UE5+Release-5.7'
 
 class Anim:
@@ -4731,6 +4731,11 @@ class Perf:
     def parse_alloc_trace_to_summary(*, utrace_path):
         """X.parse_alloc_trace_to_summary(utrace_path) -> BridgePerfAllocSummary"""
         return unreal.UnrealBridgePerfLibrary.parse_alloc_trace_to_summary(utrace_path)
+
+    @staticmethod
+    def parse_cook_trace_to_summary(*, utrace_path, top_n=50):
+        """X.parse_cook_trace_to_summary(utrace_path, top_n=50) -> BridgePerfCookSummary"""
+        return unreal.UnrealBridgePerfLibrary.parse_cook_trace_to_summary(utrace_path, top_n)
 
     @staticmethod
     def parse_net_trace_to_summary(*, utrace_path):

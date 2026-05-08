@@ -161,6 +161,39 @@ for row in s.u_objects.top_classes[:5]:
 
 ---
 
+## parse_cook_trace_to_summary(utrace_path, top_n=50) -> FBridgePerfCookSummary
+
+**(M6-3)** Parse a cook trace's `ICookProfilerProvider` data. Trace must contain the `cook` channel — typically captured during a cook commandlet:
+
+```
+UnrealEditor-Cmd.exe MyGame.uproject -run=Cook -targetplatform=Windows -trace=cook,cpu,frame -tracefile=MyCook.utrace
+```
+
+| Field | Type | Notes |
+|---|---|---|
+| `trace_path` / `file_size_bytes` | str / int64 | Echoed back. |
+| `has_events` | bool | False when the trace lacks `cook` channel. |
+| `package_count` | int32 | Number of packages observed. |
+| `total_cook_time_seconds` | double | Sum of every package's `total_cook_time_ms`. |
+| `packages` | array of `FBridgePerfCookRow` | Top-N by `total_cook_time_ms` desc. |
+| `success` / `error` | bool / str | |
+
+### `FBridgePerfCookRow`
+
+| Field | Type | Notes |
+|---|---|---|
+| `package_name` | str | Package path (e.g. `"/Game/Maps/Forest"`). |
+| `asset_class` | str | Top-level asset class (`"Texture2D"`, `"Material"`, …). |
+| `total_cook_time_ms` | double | Sum of the four phases below. |
+| `load_time_ms` | double | Inclusive `LoadPackage` time. |
+| `save_time_ms` | double | Inclusive `SavePackage` time. |
+| `begin_cache_cooked_platform_data_ms` | double | Inclusive `BeginCacheForCookedPlatformData` time — typically dominated by shader / DDC compile for Material packages. |
+| `is_cached_cooked_platform_data_loaded_ms` | double | Inclusive `IsCachedCookedPlatformDataLoaded` poll time. |
+
+**Use case**: 4-hour cook attribution. Typically the worst offenders are Material-class packages where `begin_cache_cooked_platform_data_ms` dominates (shader compile).
+
+---
+
 ## parse_net_trace_to_summary(utrace_path) -> FBridgePerfNetSummary
 
 **(M6-2)** Parse a `.utrace` file's network profiler data. Trace must contain the `net` channel; without it `net_trace_version` is 0 and `has_events` is False.

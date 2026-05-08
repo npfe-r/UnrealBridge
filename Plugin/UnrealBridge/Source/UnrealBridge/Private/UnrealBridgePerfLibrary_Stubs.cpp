@@ -67,4 +67,10 @@ FBridgeAllMaterialsAnalysis UUnrealBridgePerfLibrary::AnalyzeAllMaterials(int32 
 	return FBridgeAllMaterialsAnalysis{};
 }
 
+FBridgePerfCookSummary UUnrealBridgePerfLibrary::ParseCookTraceToSummary(const FString& UtracePath, int32 TopN)
+{
+	UE_LOG(LogTemp, Warning, TEXT("UUnrealBridgePerfLibrary::ParseCookTraceToSummary requires UE 5.7+ — call ignored on this engine version"));
+	return FBridgePerfCookSummary{};
+}
+
 #endif // UE_VERSION_OLDER_THAN(5, 7, 0)

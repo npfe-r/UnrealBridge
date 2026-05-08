@@ -31,7 +31,7 @@
       "TIMER"
     ]
   },
-  "generated_at": "2026-05-08T17:00:45+00:00",
+  "generated_at": "2026-05-08T17:05:20+00:00",
   "libraries": {
     "UnrealBridgeAnimLibrary": {
       "functions": {
@@ -17679,6 +17679,24 @@
           ],
           "returns": "BridgePerfAllocSummary"
         },
+        "parse_cook_trace_to_summary": {
+          "doc": "X.parse_cook_trace_to_summary(utrace_path, top_n=50) -> BridgePerfCookSummary",
+          "params": [
+            {
+              "default": null,
+              "has_default": false,
+              "name": "utrace_path",
+              "type": ""
+            },
+            {
+              "default": "50",
+              "has_default": true,
+              "name": "top_n",
+              "type": ""
+            }
+          ],
+          "returns": "BridgePerfCookSummary"
+        },
         "parse_net_trace_to_summary": {
           "doc": "X.parse_net_trace_to_summary(utrace_path) -> BridgePerfNetSummary",
           "params": [
@@ -21150,6 +21168,25 @@
       "level_name",
       "sample_paths",
       "total_bytes"
+    ],
+    "BridgePerfCookRow": [
+      "asset_class",
+      "begin_cache_cooked_platform_data_ms",
+      "is_cached_cooked_platform_data_loaded_ms",
+      "load_time_ms",
+      "package_name",
+      "save_time_ms",
+      "total_cook_time_ms"
+    ],
+    "BridgePerfCookSummary": [
+      "error",
+      "file_size_bytes",
+      "has_events",
+      "package_count",
+      "packages",
+      "success",
+      "total_cook_time_seconds",
+      "trace_path"
     ],
     "BridgePerfCounter": [
       "average_value",
