@@ -3023,6 +3023,7 @@ TArray<FBridgeTraceChannelInfo> UUnrealBridgePerfLibrary::ListTraceChannels()
 #include "Engine/StreamableRenderAsset.h"
 #include "ContentStreaming.h"
 #include "TextureResource.h"
+#include "ProfilingDebugging/RealtimeGPUProfiler.h"
 #include "ProfilingDebugging/MiscTrace.h"  // ETraceFrameType
 
 namespace BridgePerfTraceImpl
@@ -3941,6 +3942,69 @@ FBridgeRenderTargetMemory UUnrealBridgePerfLibrary::GetRenderTargetMemory(int32 
 	{
 		Out.Entries.Add(MoveTemp(AllEntries[i]));
 	}
+
+	return Out;
+}
+
+// ─── M7-3 GetPerPassGpuTimings ───────────────────────────────────
+
+FBridgeGpuPassTimings UUnrealBridgePerfLibrary::GetPerPassGpuTimings()
+{
+	FBridgeGpuPassTimings Out;
+
+#if HAS_GPU_STATS && (RHI_NEW_GPU_PROFILER == 0) && GPUPROFILERTRACE_ENABLED
+	if (!AreGPUStatsEnabled())
+	{
+		Out.Diagnostic = TEXT("GPU stats are disabled — set r.GPUStatsEnabled=1");
+		return Out;
+	}
+
+	FRealtimeGPUProfiler* Profiler = FRealtimeGPUProfiler::Get();
+	if (!Profiler)
+	{
+		Out.Diagnostic = TEXT("FRealtimeGPUProfiler::Get() returned null");
+		return Out;
+	}
+
+	TArray<FRealtimeGPUProfilerDescriptionResult> Results;
+	Profiler->FetchPerfByDescription(Results);
+
+	if (Results.Num() == 0)
+	{
+		// History buffer empty (profiler hasn't ticked or no stats registered yet).
+		Out.Diagnostic = TEXT("FRealtimeGPUProfiler returned empty history — render at least a few frames first");
+		Out.bAvailable = true;
+		return Out;
+	}
+
+	Out.bAvailable = true;
+	Out.PassCount  = Results.Num();
+	Out.Passes.Reserve(Results.Num());
+	double Sum = 0.0;
+
+	for (const FRealtimeGPUProfilerDescriptionResult& R : Results)
+	{
+		FBridgeGpuPassTiming Row;
+		Row.PassName  = R.Description;
+		Row.GpuIndex  = static_cast<int32>(R.GPUMask.GetFirstIndex());
+		// FRealtimeGPUProfilerDescriptionResult times are in microseconds.
+		Row.AverageMs = static_cast<double>(R.AverageTime) / 1000.0;
+		Row.MinMs     = static_cast<double>(R.MinTime)     / 1000.0;
+		Row.MaxMs     = static_cast<double>(R.MaxTime)     / 1000.0;
+		Sum          += Row.AverageMs;
+		Out.Passes.Add(MoveTemp(Row));
+	}
+
+	Out.SumAverageMs = Sum;
+	Out.Passes.Sort(
+		[](const FBridgeGpuPassTiming& A, const FBridgeGpuPassTiming& B)
+		{
+			return A.AverageMs > B.AverageMs;
+		});
+#else
+	Out.bAvailable = false;
+	Out.Diagnostic = TEXT("RHI_NEW_GPU_PROFILER active or HAS_GPU_STATS off — use Insights with gpu+rdg channels");
+#endif
 
 	return Out;
 }

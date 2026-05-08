@@ -55,4 +55,10 @@ FBridgeRenderTargetMemory UUnrealBridgePerfLibrary::GetRenderTargetMemory(int32 
 	return FBridgeRenderTargetMemory{};
 }
 
+FBridgeGpuPassTimings UUnrealBridgePerfLibrary::GetPerPassGpuTimings()
+{
+	UE_LOG(LogTemp, Warning, TEXT("UUnrealBridgePerfLibrary::GetPerPassGpuTimings requires UE 5.7+ — call ignored on this engine version"));
+	return FBridgeGpuPassTimings{};
+}
+
 #endif // UE_VERSION_OLDER_THAN(5, 7, 0)

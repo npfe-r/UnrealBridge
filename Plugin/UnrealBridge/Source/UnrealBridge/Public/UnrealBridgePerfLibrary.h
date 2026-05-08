@@ -939,6 +939,62 @@ struct FBridgeTextureStreamingRow
 	bool bForceResident = false;
 };
 
+/** One per-pass GPU timing row (M7-3). Microseconds → milliseconds for output. */
+USTRUCT(BlueprintType)
+struct FBridgeGpuPassTiming
+{
+	GENERATED_BODY()
+
+	/** Pass description as registered by SCOPED_GPU_STAT etc. */
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Perf")
+	FString PassName;
+
+	/** GPU index this measurement was taken on (0 in single-GPU). */
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Perf")
+	int32 GpuIndex = 0;
+
+	/** Average GPU time over the profiler's history window, ms. */
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Perf")
+	double AverageMs = 0.0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Perf")
+	double MinMs = 0.0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Perf")
+	double MaxMs = 0.0;
+};
+
+/** Result of `get_per_pass_gpu_timings` (M7-3). */
+USTRUCT(BlueprintType)
+struct FBridgeGpuPassTimings
+{
+	GENERATED_BODY()
+
+	/** True when the realtime GPU profiler returned data. False on the new
+	 *  RHI GPU profiler path (`RHI_NEW_GPU_PROFILER=1`) where the legacy
+	 *  FetchPerfByDescription API is empty — fall back to Insights with the
+	 *  `gpu` + `rdg` channels. */
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Perf")
+	bool bAvailable = false;
+
+	/** Sum of `AverageMs` across all rows. Approximates last-frame GPU time
+	 *  for "scene rendering" stat scopes; not a literal frame total because
+	 *  passes can overlap on multi-queue GPUs. */
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Perf")
+	double SumAverageMs = 0.0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Perf")
+	int32 PassCount = 0;
+
+	/** Pass rows, sorted by `AverageMs` descending. */
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Perf")
+	TArray<FBridgeGpuPassTiming> Passes;
+
+	/** Diagnostic message when bAvailable=false. */
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Perf")
+	FString Diagnostic;
+};
+
 /** One render-target entry (M7-2). */
 USTRUCT(BlueprintType)
 struct FBridgeRenderTargetEntry
@@ -1774,4 +1830,23 @@ public:
 	 */
 	UFUNCTION(BlueprintCallable, Category = "UnrealBridge|Perf")
 	static FBridgeRenderTargetMemory GetRenderTargetMemory(int32 TopN = 30);
+
+	/**
+	 * Per-pass GPU timings via `FRealtimeGPUProfiler::FetchPerfByDescription`
+	 * (M7-3). Returns one row per registered GPU stat scope (BasePass /
+	 * ShadowDepths / Lumen / Translucency / PostProcess / etc.) with average,
+	 * min and max ms over the profiler's rolling 64-frame history.
+	 *
+	 * Requires `r.GPUStatsEnabled=1` (default in editor/dev builds) and the
+	 * legacy GPU profiler path. When the new RHI GPU profiler is enabled
+	 * (`RHI_NEW_GPU_PROFILER=1`) the legacy table is empty — falls back to
+	 * `bAvailable=false` with a diagnostic message; use Insights with `gpu`
+	 * + `rdg` channels in that case.
+	 *
+	 * Cost: ~1 ms (read-only scan of the profiler history table). GameThread
+	 * only. The data is cumulative since editor launch — represents the
+	 * profiler's running average, not last-frame.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "UnrealBridge|Perf")
+	static FBridgeGpuPassTimings GetPerPassGpuTimings();
 };

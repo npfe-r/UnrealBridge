@@ -16,7 +16,7 @@ structural rather than mnemonic.
 
 import unreal
 
-_GENERATED_AT = '2026-05-08T16:50:41+00:00'
+_GENERATED_AT = '2026-05-08T16:55:03+00:00'
 _UE_VERSION = '5.7.1-48512491+++UE5+Release-5.7'
 
 class Anim:
@@ -4651,6 +4651,11 @@ class Perf:
     def get_nanite_stats():
         """X.get_nanite_stats() -> BridgeNaniteStats"""
         return unreal.UnrealBridgePerfLibrary.get_nanite_stats()
+
+    @staticmethod
+    def get_per_pass_gpu_timings():
+        """X.get_per_pass_gpu_timings() -> BridgeGpuPassTimings"""
+        return unreal.UnrealBridgePerfLibrary.get_per_pass_gpu_timings()
 
     @staticmethod
     def get_perf_sampling_state():

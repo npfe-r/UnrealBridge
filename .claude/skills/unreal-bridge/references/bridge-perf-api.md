@@ -220,6 +220,32 @@ for row in s.u_objects.top_classes[:5]:
 
 ---
 
+## get_per_pass_gpu_timings() -> FBridgeGpuPassTimings
+
+**(M7-3)** Per-pass GPU timings via `FRealtimeGPUProfiler::FetchPerfByDescription`. One row per registered GPU stat scope (BasePass / ShadowDepths / Lumen / Translucency / PostProcess / etc.) with average / min / max ms over the profiler's rolling 64-frame history.
+
+| Top-level field | Type | Notes |
+|---|---|---|
+| `available` | bool | False on the new RHI GPU profiler path (`RHI_NEW_GPU_PROFILER=1`) — fall back to Insights with `gpu` + `rdg` channels. |
+| `sum_average_ms` | double | Sum of average ms across all rows. Approximates last-frame "scene rendering" GPU time; not a literal frame total because passes can overlap on multi-queue GPUs. |
+| `pass_count` | int32 | Number of pass rows. |
+| `passes` | array of `FBridgeGpuPassTiming` | Sorted by `average_ms` desc. |
+| `diagnostic` | str | Why `available=false` when applicable. |
+
+### `FBridgeGpuPassTiming`
+
+| Field | Type | Notes |
+|---|---|---|
+| `pass_name` | str | Pass description as registered. |
+| `gpu_index` | int32 | GPU index (0 in single-GPU). |
+| `average_ms` / `min_ms` / `max_ms` | double | Profiler's running stats (microseconds → ms). |
+
+**UE 5.7 reality check** — UE 5.7 ships with `RHI_NEW_GPU_PROFILER=1` enabled by default and the legacy `FRealtimeGPUProfiler` table is empty. The new profiler stores per-pass data via `UE::RHI::GPUProfiler::FGPUStat::FStatInstance` (keyed by queue × Busy/Wait/Idle), but exposing it requires hooking the standard STATS system or the `gpu` trace channel — out of scope for a single-call live query.
+
+**Workaround for live per-pass GPU on 5.7**: capture a trace with `cpu`, `gpu`, `frame` channels, then call `parse_trace_to_summary` — its `gpu_hot_scopes` field carries the same data resolved offline. This op is best when 5.8+ stabilises the new-profiler query API.
+
+---
+
 ## get_render_target_memory(top_n=30) -> FBridgeRenderTargetMemory
 
 **(M7-2)** Aggregate memory of `UTextureRenderTarget*` objects in memory. Walks `TObjectIterator<UTexture>` filtering by `IsA<UTextureRenderTarget>` (the abstract base doesn't iterate directly).

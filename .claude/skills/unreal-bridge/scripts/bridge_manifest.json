@@ -31,7 +31,7 @@
       "TIMER"
     ]
   },
-  "generated_at": "2026-05-08T16:50:41+00:00",
+  "generated_at": "2026-05-08T16:55:03+00:00",
   "libraries": {
     "UnrealBridgeAnimLibrary": {
       "functions": {
@@ -17486,6 +17486,11 @@
           "params": [],
           "returns": "BridgeNaniteStats"
         },
+        "get_per_pass_gpu_timings": {
+          "doc": "X.get_per_pass_gpu_timings() -> BridgeGpuPassTimings",
+          "params": [],
+          "returns": "BridgeGpuPassTimings"
+        },
         "get_perf_sampling_state": {
           "doc": "X.get_perf_sampling_state() -> BridgePerfSamplingState",
           "params": [],
@@ -20458,6 +20463,20 @@
       "kind",
       "node_guid",
       "node_title"
+    ],
+    "BridgeGpuPassTiming": [
+      "average_ms",
+      "gpu_index",
+      "max_ms",
+      "min_ms",
+      "pass_name"
+    ],
+    "BridgeGpuPassTimings": [
+      "available",
+      "diagnostic",
+      "pass_count",
+      "passes",
+      "sum_average_ms"
     ],
     "BridgeGrantedAbilityInfo": [
       "ability_class_name",
