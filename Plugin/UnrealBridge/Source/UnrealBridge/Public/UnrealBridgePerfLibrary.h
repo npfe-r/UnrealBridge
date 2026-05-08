@@ -973,6 +973,28 @@ public:
 	static void ClearHitchLog();
 
 	/**
+	 * Compute percentile frame times from the always-on internal histogram (M5-4).
+	 *
+	 * Returns one ms value per percentile in `Percentiles`, in input order. Each
+	 * percentile p is interpreted as a value in [0, 100] (clamped) and resolves
+	 * to the smallest frame time T such that at least p% of all observed frames
+	 * had total time ≤ T. The resolution within a bucket is linear (sub-bucket
+	 * percentile sits proportionally between LowerMs and UpperMs).
+	 *
+	 * Returns an array of zeros when no frames have been observed yet (or after
+	 * `ResetFrameTimeHistogram`). The overflow bucket (frames > 200 ms) reports
+	 * its lower edge — exact ms is unknown for those frames.
+	 *
+	 * Cost: O(buckets + len(Percentiles)) ~= microseconds. Safe to poll.
+	 *
+	 * Typical use: `get_frame_time_percentiles([50, 90, 95, 99])` for a hitch
+	 * survey. p99 is the standard "worst real-world frame" metric — looking at
+	 * `frame_max_ms` is misleading because it picks up one-frame outliers.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "UnrealBridge|Perf")
+	static TArray<float> GetFrameTimePercentiles(const TArray<float>& Percentiles);
+
+	/**
 	 * Begin (or restart) periodic perf sampling. A FTSTicker on the GameThread
 	 * fires every `PeriodMs` and captures a `FBridgePerfSnapshot` into a
 	 * ring buffer of size `MaxSamples`. When `bIncludeUObjectStats` is true,

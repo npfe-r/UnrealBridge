@@ -161,6 +161,32 @@ for row in s.u_objects.top_classes[:5]:
 
 ---
 
+## get_frame_time_percentiles(percentiles) -> array of float
+
+**(M5-4)** Compute percentile frame times from the always-on internal frame-time histogram. The histogram is populated by an `OnEndFrame` hook that has been recording every frame since module load (see `reset_frame_time_histogram` to baseline before a measurement window).
+
+| Param | Type | Notes |
+|---|---|---|
+| `percentiles` | array of float | One value per percentile to compute, each in `[0, 100]` (clamped). E.g. `[50, 90, 95, 99]`. Empty input returns empty output. |
+
+Returns one ms value per requested percentile in the same order. Each percentile p resolves to the smallest frame time T such that ≥ p% of observed frames had total time ≤ T. Sub-bucket resolution is linear within the 0.5 ms internal bucket. The overflow bucket (frames > 200 ms) reports its lower edge — exact ms is unknown for those frames.
+
+**Cost** — O(buckets + len(percentiles)) ≈ microseconds. Safe to poll.
+
+**Example**
+```python
+# After warming up by running PIE / camera-flying for a while:
+ps = unreal.UnrealBridgePerfLibrary.get_frame_time_percentiles([50, 90, 95, 99])
+print(f"p50={ps[0]:.1f} ms  p90={ps[1]:.1f} ms  p95={ps[2]:.1f} ms  p99={ps[3]:.1f} ms")
+```
+
+**Pitfalls**
+- Returns all zeros when no frames have been observed yet.
+- For "before/after" comparisons, call `reset_frame_time_histogram()` before each measurement window — otherwise older frames leak in.
+- p99 is the standard "worst real-world frame" metric. Looking at `frame_max_ms` is misleading — it picks up one-frame outliers like a ⟂ reload spike.
+
+---
+
 ## parse_trace_to_summary(utrace_path, top_n=20, top_n_per_thread=10) -> FBridgePerfTraceSummary
 
 Parse a `.utrace` file (output of `start_trace_capture` / `stop_trace_capture` or `Trace.Start File=…` console command) into a structured summary. Wraps `TraceServices::IAnalysisService::Analyze` synchronously, then walks the diagnostics + frame + timing-profiler + thread providers.

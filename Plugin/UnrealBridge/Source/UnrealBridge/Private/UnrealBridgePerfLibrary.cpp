@@ -1632,6 +1632,78 @@ void UUnrealBridgePerfLibrary::ClearHitchLog()
 	BridgePerfFrameHook::ClearHitches();
 }
 
+// ─── M5-4: GetFrameTimePercentiles ──────────────────────────
+
+TArray<float> UUnrealBridgePerfLibrary::GetFrameTimePercentiles(const TArray<float>& Percentiles)
+{
+	TArray<float> Out;
+	Out.Reserve(Percentiles.Num());
+
+	int32 SnapshotBuckets[BridgePerfFrameHook::FineBucketCount];
+	int64 Total = 0;
+	BridgePerfFrameHook::SnapshotFineBuckets(SnapshotBuckets, Total);
+
+	if (Total <= 0)
+	{
+		// No frames observed yet — return zero per requested percentile.
+		Out.AddZeroed(Percentiles.Num());
+		return Out;
+	}
+
+	const float FineWidth = BridgePerfFrameHook::FineBucketWidthMs;
+	const int32 LastIdx   = BridgePerfFrameHook::FineBucketCount - 1;
+
+	for (float Raw : Percentiles)
+	{
+		const double P = static_cast<double>(FMath::Clamp(Raw, 0.f, 100.f));
+
+		// Target rank = ceil(P/100 * Total). p=100 → Total; p=0 → 0 (handled
+		// specially: report first non-empty bucket lower edge).
+		int64 Target = static_cast<int64>(FMath::CeilToDouble((P / 100.0) * static_cast<double>(Total)));
+		if (P <= 0.0)
+		{
+			Target = 1; // any non-empty bucket — yields min observed time.
+		}
+		Target = FMath::Clamp<int64>(Target, 1, Total);
+
+		// Walk fine buckets cumulating until we hit Target.
+		int64 Cum = 0;
+		int32 HitBucket = LastIdx;
+		for (int32 i = 0; i < BridgePerfFrameHook::FineBucketCount; ++i)
+		{
+			const int32 BucketCount = SnapshotBuckets[i];
+			if (BucketCount <= 0) continue;
+			const int64 Next = Cum + BucketCount;
+			if (Next >= Target)
+			{
+				HitBucket = i;
+				// Linear interpolation: position within bucket = (Target - Cum) / BucketCount.
+				const double Pos = (BucketCount > 0)
+					? static_cast<double>(Target - Cum) / static_cast<double>(BucketCount)
+					: 0.0;
+				if (HitBucket == LastIdx)
+				{
+					// Overflow bucket: real ms unknown; report lower edge.
+					Out.Add(static_cast<float>(HitBucket) * FineWidth);
+				}
+				else
+				{
+					const double LowerMs = static_cast<double>(HitBucket) * FineWidth;
+					Out.Add(static_cast<float>(LowerMs + Pos * FineWidth));
+				}
+				goto NextPercentile;
+			}
+			Cum = Next;
+		}
+		// Defensive fallback — shouldn't reach here because Target ≤ Total
+		// and the cumulative walk is exhaustive.
+		Out.Add(static_cast<float>(LastIdx) * FineWidth);
+		NextPercentile:;
+	}
+
+	return Out;
+}
+
 // ─── M2-1..3: opt-in periodic perf sampling ─────────────────
 
 namespace BridgePerfSampler

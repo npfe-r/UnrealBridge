@@ -16,7 +16,7 @@ structural rather than mnemonic.
 
 import unreal
 
-_GENERATED_AT = '2026-05-08T16:16:01+00:00'
+_GENERATED_AT = '2026-05-08T16:25:48+00:00'
 _UE_VERSION = '5.7.1-48512491+++UE5+Release-5.7'
 
 class Anim:
@@ -4611,6 +4611,11 @@ class Perf:
     def get_frame_time_histogram(*, bucket_ms=5.000000, max_bucket_ms=100.000000):
         """X.get_frame_time_histogram(bucket_ms=5.000000, max_bucket_ms=100.000000) -> Array[BridgeHistogramBucket]"""
         return unreal.UnrealBridgePerfLibrary.get_frame_time_histogram(bucket_ms, max_bucket_ms)
+
+    @staticmethod
+    def get_frame_time_percentiles(*, percentiles):
+        """X.get_frame_time_percentiles(percentiles) -> Array[float]"""
+        return unreal.UnrealBridgePerfLibrary.get_frame_time_percentiles(percentiles)
 
     @staticmethod
     def get_frame_timing():

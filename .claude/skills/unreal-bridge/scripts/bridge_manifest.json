@@ -31,7 +31,7 @@
       "TIMER"
     ]
   },
-  "generated_at": "2026-05-08T16:16:01+00:00",
+  "generated_at": "2026-05-08T16:25:48+00:00",
   "libraries": {
     "UnrealBridgeAnimLibrary": {
       "functions": {
@@ -17387,6 +17387,18 @@
             }
           ],
           "returns": "Array[BridgeHistogramBucket]"
+        },
+        "get_frame_time_percentiles": {
+          "doc": "X.get_frame_time_percentiles(percentiles) -> Array[float]",
+          "params": [
+            {
+              "default": null,
+              "has_default": false,
+              "name": "percentiles",
+              "type": ""
+            }
+          ],
+          "returns": "Array[float]"
         },
         "get_frame_timing": {
           "doc": "X.get_frame_timing() -> BridgeFrameTiming",
