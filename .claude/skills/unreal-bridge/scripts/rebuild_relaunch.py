@@ -30,6 +30,14 @@ import subprocess
 import sys
 import time
 
+# Windows consoles in non-en locales (e.g. cp936) can't encode every Unicode
+# code point that ends up in MSVC localized error text or in our utf-8-replaced
+# subprocess stdout. Reconfigure so writes never crash mid-build.
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(errors="replace")
+if hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(errors="replace")
+
 SCRIPT_DIR = pathlib.Path(__file__).resolve().parent
 BRIDGE_PY  = SCRIPT_DIR / "bridge.py"
 REPO_ROOT  = SCRIPT_DIR.parents[3]

@@ -45,7 +45,7 @@ TARGETS: list[dict] = [
     {"name": "UnrealBridgeBlueprintLibrary",      "scope": "function", "function": "AddAsyncActionNode"},
     {"name": "UnrealBridgeGameplayAbilityLibrary","scope": "function", "function": "AddAbilityTaskNode"},
     {"name": "UnrealBridgePerfLibrary",           "scope": "functions",
-        "functions": ["GetLumenDiagnostics", "GetNaniteStats"]},
+        "functions": ["GetLumenDiagnostics", "GetNaniteStats", "ParseTraceToSummary"]},
 ]
 
 # Class line: `class [UNREALBRIDGE_API] UFoo : public UBlueprintFunctionLibrary`.

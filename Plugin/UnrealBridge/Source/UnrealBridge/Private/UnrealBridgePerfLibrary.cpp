@@ -2924,3 +2924,190 @@ TArray<FBridgeTraceChannelInfo> UUnrealBridgePerfLibrary::ListTraceChannels()
 
 	return Out;
 }
+
+// ─── M4-5 ParseTraceToSummary ───────────────────────────────────
+
+#if !UE_VERSION_OLDER_THAN(5, 7, 0)
+#include "Modules/ModuleManager.h"
+#include "TraceServices/ITraceServicesModule.h"
+#include "TraceServices/AnalysisService.h"
+#include "TraceServices/Model/AnalysisSession.h"
+#include "TraceServices/Model/Diagnostics.h"
+#include "TraceServices/Model/Frames.h"
+#include "TraceServices/Model/TimingProfiler.h"
+#include "ProfilingDebugging/MiscTrace.h"  // ETraceFrameType
+
+FBridgePerfTraceSummary UUnrealBridgePerfLibrary::ParseTraceToSummary(const FString& UtracePath, int32 TopN)
+{
+	FBridgePerfTraceSummary Out;
+	Out.TracePath = UtracePath;
+	IFileManager& FileMgr = IFileManager::Get();
+	if (!FileMgr.FileExists(*UtracePath))
+	{
+		Out.Error = FString::Printf(TEXT("trace file not found: %s"), *UtracePath);
+		return Out;
+	}
+	Out.FileSizeBytes = FileMgr.FileSize(*UtracePath);
+	if (Out.FileSizeBytes <= 0)
+	{
+		Out.Error = FString::Printf(TEXT("trace file empty or unreadable: %s"), *UtracePath);
+		return Out;
+	}
+
+	ITraceServicesModule* TSModule = FModuleManager::LoadModulePtr<ITraceServicesModule>("TraceServices");
+	if (!TSModule)
+	{
+		Out.Error = TEXT("TraceServices module load failed");
+		return Out;
+	}
+	TSharedPtr<TraceServices::IAnalysisService> AnalysisService = TSModule->GetAnalysisService();
+	if (!AnalysisService)
+	{
+		Out.Error = TEXT("TraceServices::IAnalysisService unavailable");
+		return Out;
+	}
+
+	// Synchronous Analyze — blocks until the trace stream is fully consumed.
+	TSharedPtr<const TraceServices::IAnalysisSession> Session = AnalysisService->Analyze(*UtracePath);
+	if (!Session.IsValid())
+	{
+		Out.Error = TEXT("Analyze() returned null session — trace probably malformed");
+		return Out;
+	}
+
+	// All provider reads must happen inside a read scope. RAII helper.
+	TraceServices::FAnalysisSessionReadScope ReadScope(*Session);
+
+	// Diagnostics provider — engine version + project metadata.
+	if (const TraceServices::IDiagnosticsProvider* Diag = TraceServices::ReadDiagnosticsProvider(*Session))
+	{
+		if (Diag->IsSessionInfoAvailable())
+		{
+			const TraceServices::FSessionInfo& Info = Diag->GetSessionInfo();
+			Out.Platform     = Info.Platform;
+			Out.AppName      = Info.AppName;
+			Out.ProjectName  = Info.ProjectName;
+			Out.BuildVersion = Info.BuildVersion;
+			Out.Changelist   = static_cast<int32>(Info.Changelist);
+		}
+	}
+
+	// Frames provider — Game frames only. Returns a reference (never null).
+	{
+		const TraceServices::IFrameProvider& FrameProv = TraceServices::ReadFrameProvider(*Session);
+		const uint64 GameFrameCount = FrameProv.GetFrameCount(TraceFrameType_Game);
+		Out.GameFrameCount = static_cast<int32>(GameFrameCount);
+
+		double TotalMs = 0.0;
+		double MinMs   = TNumericLimits<double>::Max();
+		double MaxMs   = 0.0;
+		int32 ValidFrames = 0;
+		FrameProv.EnumerateFrames(TraceFrameType_Game, 0, GameFrameCount,
+			[&](const TraceServices::FFrame& Frame)
+			{
+				const double DurMs = (Frame.EndTime - Frame.StartTime) * 1000.0;
+				// Skip frames whose End is infinite (open at trace stop) or
+				// negative (clock drift) — they pollute avg/min/max.
+				if (!FMath::IsFinite(DurMs) || DurMs < 0.0)
+				{
+					return;
+				}
+				TotalMs += DurMs;
+				++ValidFrames;
+				if (DurMs < MinMs) MinMs = DurMs;
+				if (DurMs > MaxMs) MaxMs = DurMs;
+			});
+		Out.GameFrameCount = ValidFrames;
+		Out.TotalDurationSeconds = TotalMs / 1000.0;
+		if (ValidFrames > 0)
+		{
+			Out.FrameAvgMs = static_cast<float>(TotalMs / static_cast<double>(ValidFrames));
+			Out.FrameMinMs = static_cast<float>(MinMs);
+			Out.FrameMaxMs = static_cast<float>(MaxMs);
+		}
+	}
+
+	// TimingProfiler — top-N hot scopes by total inclusive time.
+	if (const TraceServices::ITimingProfilerProvider* TimingProv = TraceServices::ReadTimingProfilerProvider(*Session))
+	{
+		// Map TimerId → display name. The Reader's name pointers are only
+		// valid inside the callback, so we snapshot to FString.
+		TMap<uint32, FString> TimerNames;
+		TimingProv->ReadTimers(
+			[&TimerNames](const TraceServices::ITimingProfilerTimerReader& Reader)
+			{
+				const uint32 TimerCount = Reader.GetTimerCount();
+				TimerNames.Reserve(TimerCount);
+				for (uint32 i = 0; i < TimerCount; ++i)
+				{
+					if (const TraceServices::FTimingProfilerTimer* Timer = Reader.GetTimer(i))
+					{
+						const TCHAR* Name = Timer->Name ? Timer->Name : TEXT("<unnamed>");
+						TimerNames.Add(Timer->Id, FString(Name));
+					}
+				}
+			});
+
+		// Walk every CPU thread timeline, accumulate per-timer total inclusive time.
+		struct FAgg
+		{
+			double  TotalMs = 0.0;
+			int64   Count   = 0;
+		};
+		TMap<uint32, FAgg> Aggregates;
+		Aggregates.Reserve(TimerNames.Num());
+
+		TimingProv->EnumerateTimelines(
+			[&Aggregates](const TraceServices::ITimingProfilerProvider::Timeline& Timeline)
+			{
+				const double Start = Timeline.GetStartTime();
+				const double End   = Timeline.GetEndTime();
+				if (Start >= End) return;
+				Timeline.EnumerateEvents(Start, End,
+					[&Aggregates](double StartTime, double EndTime, uint32 /*Depth*/, const TraceServices::FTimingProfilerEvent& Event) -> TraceServices::EEventEnumerate
+					{
+						const double DurMs = (EndTime - StartTime) * 1000.0;
+						// Skip events still open at trace stop (EndTime ~= +inf
+						// or huge sentinel) — they'd swallow the aggregation.
+						if (!FMath::IsFinite(DurMs) || DurMs < 0.0)
+						{
+							return TraceServices::EEventEnumerate::Continue;
+						}
+						FAgg& A = Aggregates.FindOrAdd(Event.TimerIndex);
+						A.TotalMs += DurMs;
+						A.Count++;
+						return TraceServices::EEventEnumerate::Continue;
+					});
+			});
+
+		// Rank descending by TotalMs and keep top-N.
+		TArray<TPair<uint32, FAgg>> Ranked;
+		Ranked.Reserve(Aggregates.Num());
+		for (const TPair<uint32, FAgg>& Pair : Aggregates)
+		{
+			Ranked.Emplace(Pair.Key, Pair.Value);
+		}
+		Ranked.Sort(
+			[](const TPair<uint32, FAgg>& A, const TPair<uint32, FAgg>& B)
+			{
+				return A.Value.TotalMs > B.Value.TotalMs;
+			});
+
+		const int32 ClampedTopN = FMath::Clamp(TopN, 1, 1000);
+		const int32 Take = FMath::Min(Ranked.Num(), ClampedTopN);
+		Out.HotScopes.Reserve(Take);
+		for (int32 i = 0; i < Take; ++i)
+		{
+			FBridgePerfHotScope Row;
+			const FString* NamePtr = TimerNames.Find(Ranked[i].Key);
+			Row.Name      = NamePtr ? *NamePtr : FString::Printf(TEXT("<TimerIndex %u>"), Ranked[i].Key);
+			Row.TotalMs   = Ranked[i].Value.TotalMs;
+			Row.CallCount = static_cast<int32>(Ranked[i].Value.Count);
+			Out.HotScopes.Add(MoveTemp(Row));
+		}
+	}
+
+	Out.bSuccess = true;
+	return Out;
+}
+#endif // !UE_VERSION_OLDER_THAN(5, 7, 0) — pre-5.7 path lives in UnrealBridgePerfLibrary_Stubs.cpp

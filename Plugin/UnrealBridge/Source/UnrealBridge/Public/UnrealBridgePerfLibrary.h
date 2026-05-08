@@ -589,6 +589,94 @@ struct FBridgeTraceChannelInfo
 	FString Description;
 };
 
+/** One row of `FBridgePerfTraceSummary::HotScopes` (M4-5). */
+USTRUCT(BlueprintType)
+struct FBridgePerfHotScope
+{
+	GENERATED_BODY()
+
+	/** Timer name as registered via UE_TRACE_CPU_PROFILER_EVENT_SCOPE / TRACE_CPUPROFILER_EVENT_SCOPE. */
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Perf")
+	FString Name;
+
+	/** Total inclusive time across every invocation in the trace, in milliseconds. */
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Perf")
+	double TotalMs = 0.0;
+
+	/** Number of times this timer scope opened during the trace. */
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Perf")
+	int32 CallCount = 0;
+};
+
+/** Result of `parse_trace_to_summary` (M4-5). */
+USTRUCT(BlueprintType)
+struct FBridgePerfTraceSummary
+{
+	GENERATED_BODY()
+
+	/** Path that was analysed (echoed back for log/debug). */
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Perf")
+	FString TracePath;
+
+	/** Size of the .utrace file on disk in bytes. 0 if missing. */
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Perf")
+	int64 FileSizeBytes = 0;
+
+	// ─── Diagnostics (from FSessionInfo) ─────────────────────────
+
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Perf")
+	FString Platform;
+
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Perf")
+	FString AppName;
+
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Perf")
+	FString ProjectName;
+
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Perf")
+	FString BuildVersion;
+
+	/** Source-control changelist; 0 if unknown. */
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Perf")
+	int32 Changelist = 0;
+
+	// ─── Frame timing aggregate (Game frames only) ───────────────
+
+	/** Sum of (EndTime - StartTime) over all Game frames, in seconds. */
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Perf")
+	double TotalDurationSeconds = 0.0;
+
+	/** Number of Game frames in the trace. */
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Perf")
+	int32 GameFrameCount = 0;
+
+	/** Mean frame duration, in milliseconds. */
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Perf")
+	float FrameAvgMs = 0.f;
+
+	/** Fastest frame, in milliseconds. */
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Perf")
+	float FrameMinMs = 0.f;
+
+	/** Slowest frame (worst hitch), in milliseconds. */
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Perf")
+	float FrameMaxMs = 0.f;
+
+	// ─── Hot scopes (CPU TimingProfiler aggregate) ───────────────
+
+	/** Top-N timers ranked by total inclusive time across all CPU thread timelines. */
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Perf")
+	TArray<FBridgePerfHotScope> HotScopes;
+
+	/** True when Analyze + every provider read succeeded. */
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Perf")
+	bool bSuccess = false;
+
+	/** Populated when `bSuccess=false`: human-readable failure reason. */
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Perf")
+	FString Error;
+};
+
 /**
  * Structured performance snapshots for UnrealBridge. Replaces parsing
  * `stat unit` text output. All values are read from engine globals + platform
@@ -1068,12 +1156,35 @@ public:
 	 * an empty array (the public enumeration API isn't there yet).
 	 *
 	 * Result is sorted alphabetically by Name.
-	 *
-	 * NOTE: parse_trace_to_summary (M4-5) is intentionally deferred —
-	 * decoding a `.utrace` file requires either linking the `TraceServices`
-	 * module or shelling out to UnrealInsights.exe (the latter is unstable
-	 * before 5.7). Tracked in docs/plans/perf-capability-roadmap.md.
 	 */
 	UFUNCTION(BlueprintCallable, Category = "UnrealBridge|Perf")
 	static TArray<FBridgeTraceChannelInfo> ListTraceChannels();
+
+	/**
+	 * Parse a previously-captured `.utrace` file (typically the path returned
+	 * by `stop_trace_capture`) into a structured summary (M4-5). Wraps
+	 * `TraceServices::IAnalysisService::Analyze` (synchronous), then walks
+	 * Diagnostics + Frames + TimingProfiler providers.
+	 *
+	 * Output:
+	 *  - Diagnostics: platform / app / project / build version / changelist
+	 *  - Frames (Game type): count, total duration, min / avg / max ms
+	 *  - Hot scopes: top-N timers ranked by total inclusive time across all
+	 *    CPU thread timelines, with name + total ms + call count
+	 *
+	 * Cost: dominated by Analyze() — typically 1-10s per 100 MB of trace.
+	 * Synchronous, blocks the bridge exec; for large traces, kick this from
+	 * an off-main thread or simply tolerate the wait.
+	 *
+	 * Editor-only path is fine; this works in both editor and cmdlet.
+	 *
+	 * @param UtracePath  Absolute path to a `.utrace` file. File must exist.
+	 * @param TopN        Cap on hot-scope rows returned (1..1000). Clamped.
+	 * @return            FBridgePerfTraceSummary with `bSuccess=true` on
+	 *                    success, or `bSuccess=false` + populated `Error`
+	 *                    on any failure (file missing, module load fail,
+	 *                    unparseable trace).
+	 */
+	UFUNCTION(BlueprintCallable, Category = "UnrealBridge|Perf")
+	static FBridgePerfTraceSummary ParseTraceToSummary(const FString& UtracePath, int32 TopN = 20);
 };

@@ -31,7 +31,7 @@
       "TIMER"
     ]
   },
-  "generated_at": "2026-05-08T13:58:49+00:00",
+  "generated_at": "2026-05-08T15:25:28+00:00",
   "libraries": {
     "UnrealBridgeAnimLibrary": {
       "functions": {
@@ -17614,6 +17614,24 @@
           "params": [],
           "returns": "Array[BridgeTraceChannelInfo]"
         },
+        "parse_trace_to_summary": {
+          "doc": "X.parse_trace_to_summary(utrace_path, top_n=20) -> BridgePerfTraceSummary",
+          "params": [
+            {
+              "default": null,
+              "has_default": false,
+              "name": "utrace_path",
+              "type": ""
+            },
+            {
+              "default": "20",
+              "has_default": true,
+              "name": "top_n",
+              "type": ""
+            }
+          ],
+          "returns": "BridgePerfTraceSummary"
+        },
         "reset_frame_time_histogram": {
           "doc": "X.reset_frame_time_histogram() -> None",
           "params": [],
@@ -20982,6 +21000,11 @@
       "sample_paths",
       "total_bytes"
     ],
+    "BridgePerfHotScope": [
+      "call_count",
+      "name",
+      "total_ms"
+    ],
     "BridgePerfSamplingState": [
       "active",
       "include_u_object_stats",
@@ -20998,6 +21021,23 @@
       "timing",
       "u_objects",
       "was_in_pie"
+    ],
+    "BridgePerfTraceSummary": [
+      "app_name",
+      "build_version",
+      "changelist",
+      "error",
+      "file_size_bytes",
+      "frame_avg_ms",
+      "frame_max_ms",
+      "frame_min_ms",
+      "game_frame_count",
+      "hot_scopes",
+      "platform",
+      "project_name",
+      "success",
+      "total_duration_seconds",
+      "trace_path"
     ],
     "BridgePinConnection": [
       "is_exec",

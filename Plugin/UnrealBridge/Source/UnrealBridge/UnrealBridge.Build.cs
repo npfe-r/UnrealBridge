@@ -83,6 +83,10 @@ public class UnrealBridge : ModuleRules
 			// bRequiresImplementModule=false, so this only pulls the link
 			// import — no extra runtime cost.
 			"TraceLog",
+			// TraceServices — perf-capability M4-5 ParseTraceToSummary.
+			// Loads + analyses .utrace files via IAnalysisService::Analyze
+			// (synchronous). Pulls in TraceAnalysis transitively.
+			"TraceServices",
 		});
 
 		// Live Coding is a Windows-only editor module. Guard the dep so
