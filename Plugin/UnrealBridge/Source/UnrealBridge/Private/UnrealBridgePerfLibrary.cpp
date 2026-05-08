@@ -3009,6 +3009,7 @@ TArray<FBridgeTraceChannelInfo> UUnrealBridgePerfLibrary::ListTraceChannels()
 #include "TraceServices/Model/TimingProfiler.h"
 #include "TraceServices/Model/Threads.h"
 #include "TraceServices/Model/LoadTimeProfiler.h"
+#include "TraceServices/Model/Counters.h"
 #include "TraceServices/Containers/Tables.h"
 #include "ProfilingDebugging/MiscTrace.h"  // ETraceFrameType
 
@@ -3122,7 +3123,8 @@ namespace BridgePerfTraceImpl
 FBridgePerfTraceSummary UUnrealBridgePerfLibrary::ParseTraceToSummary(
 	const FString& UtracePath,
 	int32 TopN,
-	int32 TopNPerThread)
+	int32 TopNPerThread,
+	int32 TopNCounters)
 {
 	FBridgePerfTraceSummary Out;
 	Out.TracePath = UtracePath;
@@ -3340,6 +3342,90 @@ FBridgePerfTraceSummary UUnrealBridgePerfLibrary::ParseTraceToSummary(
 			}
 
 			Out.GpuHotScopes = RankAndConvert(GpuAggregates, TimerNames, TopN);
+		}
+	}
+
+	// ── M5-3: counter aggregates ──
+	// Walks every counter the trace registered, computing min/max/avg/last/sum
+	// over the full session interval. Counter timelines can be huge (10k counters
+	// × 100Hz × N seconds), so we never materialise the full timeline — the
+	// EnumerateValues callback aggregates as it streams. Counters with 0 samples
+	// are dropped. Output capped at TopNCounters by SampleCount desc.
+	if (TopNCounters > 0)
+	{
+		const int32 ClampedTopNCounters = FMath::Clamp(TopNCounters, 1, 2000);
+		const TraceServices::ICounterProvider& CounterProv = TraceServices::ReadCounterProvider(*Session);
+
+		TArray<FBridgePerfCounter> AllCounters;
+		AllCounters.Reserve(static_cast<int32>(CounterProv.GetCounterCount()));
+
+		CounterProv.EnumerateCounters(
+			[&AllCounters](uint32 CounterId, const TraceServices::ICounter& Counter)
+			{
+				FBridgePerfCounter Row;
+				Row.Name              = Counter.GetName()        ? FString(Counter.GetName())        : FString();
+				Row.Group             = Counter.GetGroup()       ? FString(Counter.GetGroup())       : FString();
+				Row.Description       = Counter.GetDescription() ? FString(Counter.GetDescription()) : FString();
+				Row.bFloatingPoint    = Counter.IsFloatingPoint();
+				Row.bResetEveryFrame  = Counter.IsResetEveryFrame();
+
+				int64 Count = 0;
+				double Min   = TNumericLimits<double>::Max();
+				double Max   = -TNumericLimits<double>::Max();
+				double Sum   = 0.0;
+				double Last  = 0.0;
+
+				if (Counter.IsFloatingPoint())
+				{
+					Counter.EnumerateFloatValues(-DBL_MAX, DBL_MAX, /*bIncludeExternalBounds*/ false,
+						[&Count, &Min, &Max, &Sum, &Last](double /*Time*/, double Value)
+						{
+							++Count;
+							if (Value < Min) Min = Value;
+							if (Value > Max) Max = Value;
+							Sum  += Value;
+							Last  = Value;
+						});
+				}
+				else
+				{
+					Counter.EnumerateValues(-DBL_MAX, DBL_MAX, /*bIncludeExternalBounds*/ false,
+						[&Count, &Min, &Max, &Sum, &Last](double /*Time*/, int64 Value)
+						{
+							++Count;
+							const double DV = static_cast<double>(Value);
+							if (DV < Min) Min = DV;
+							if (DV > Max) Max = DV;
+							Sum  += DV;
+							Last  = DV;
+						});
+				}
+
+				if (Count == 0)
+				{
+					return; // no samples — drop it.
+				}
+
+				Row.SampleCount  = static_cast<int32>(Count);
+				Row.MinValue     = Min;
+				Row.MaxValue     = Max;
+				Row.SumValue     = Sum;
+				Row.AverageValue = Sum / static_cast<double>(Count);
+				Row.LastValue    = Last;
+				AllCounters.Add(MoveTemp(Row));
+			});
+
+		AllCounters.Sort(
+			[](const FBridgePerfCounter& A, const FBridgePerfCounter& B)
+			{
+				return A.SampleCount > B.SampleCount;
+			});
+
+		const int32 Take = FMath::Min(AllCounters.Num(), ClampedTopNCounters);
+		Out.Counters.Reserve(Take);
+		for (int32 i = 0; i < Take; ++i)
+		{
+			Out.Counters.Add(MoveTemp(AllCounters[i]));
 		}
 	}
 

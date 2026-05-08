@@ -206,6 +206,7 @@ Parse a `.utrace` file (output of `start_trace_capture` / `stop_trace_capture` o
 | `gpu_hot_scopes` | array of `FBridgePerfHotScope` | **(M5-1)** Top-N GPU timers across every GPU queue (incl. legacy GPU1/GPU2 timelines for old traces). Empty when the trace did not include the `gpu` channel. |
 | `per_thread_hot_scopes` | array of `FBridgePerThreadHotScopes` | **(M5-2)** One row per CPU thread (`GameThread`, `RenderThread N`, `RHIThread`, every `WorkerThread`, `FAssetDataGatherer`, …). Sorted by `total_cpu_ms` desc. |
 | `load_time_breakdown` | array of `FBridgePerfLoadTimeRow` | **(M5-5)** Top-N packages by total load time (main thread + async loading thread). Empty when the trace lacks the `loadtime` channel **or** was captured after engine init when most packages were already cached. For useful cold-load attribution, capture from engine startup (`-trace=loadtime,frame,cpu` on the editor command line). |
+| `counters` | array of `FBridgePerfCounter` | **(M5-3)** Trace counters with min/max/avg/last/sum aggregates over the full session interval. Ranked by `sample_count` desc — busiest counters surface first. Capped by `top_n_counters`. Counters with 0 samples are dropped. Empty when the trace lacks the `counter` channel. |
 | `success` | bool | True on full success; on any failure the call returns with `success=False` + populated `error`. |
 | `error` | str | Human-readable failure reason. |
 
@@ -216,6 +217,18 @@ Parse a `.utrace` file (output of `start_trace_capture` / `stop_trace_capture` o
 | `name` | str | Timer name as registered (e.g. `RenderGraphExecute`, `FEngineLoop::Tick`). Bit-inverted metadata-tagged events are resolved back via `GetOriginalTimerIdFromMetadata`, so events with per-instance metadata collapse onto their canonical timer. |
 | `total_ms` | double | Sum of inclusive time across every invocation. |
 | `call_count` | int32 | Number of times the scope opened during the trace. |
+
+### `FBridgePerfCounter` row
+
+| Field | Type | Notes |
+|---|---|---|
+| `name` | str | Counter name (e.g. `"STAT_UnitGPU"`, `"FrameTime"`). |
+| `group` | str | Group ID (e.g. `"STATGROUP_Engine"`, empty for ad-hoc TRACE_*VALUE). |
+| `description` | str | Engine-supplied description. May be empty. |
+| `floating_point` | bool | True for `TRACE_FLOAT_VALUE` / float stats; false for int. |
+| `reset_every_frame` | bool | True for stats-style counters reset to 0 each frame. |
+| `sample_count` | int32 | Number of samples in the trace. |
+| `min_value` / `max_value` / `average_value` / `last_value` / `sum_value` | double | Aggregates over the full session. `last_value` is the most-recent sample. |
 
 ### `FBridgePerfLoadTimeRow` row
 
@@ -245,6 +258,7 @@ Parse a `.utrace` file (output of `start_trace_capture` / `stop_trace_capture` o
 - `utrace_path` (str): absolute path to a `.utrace` file. File must exist.
 - `top_n` (int32): cap on `hot_scopes` and `gpu_hot_scopes` rows (clamped to `[1, 1000]`).
 - `top_n_per_thread` (int32): cap on `top_scopes` per `per_thread_hot_scopes` row (clamped to `[1, 200]`). Pass **0 to skip the per-thread aggregation entirely** — saves time + memory on huge traces when only the global picture matters.
+- `top_n_counters` (int32): cap on `counters` rows (clamped to `[1, 2000]`). Pass **0 to skip the counter walk entirely**.
 
 ### Cost
 

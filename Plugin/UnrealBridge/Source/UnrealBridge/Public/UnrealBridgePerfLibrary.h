@@ -609,6 +609,60 @@ struct FBridgePerfHotScope
 };
 
 /**
+ * One trace counter (M5-3). Sourced from `ICounterProvider::EnumerateCounters`
+ * + per-counter `EnumerateValues` / `EnumerateFloatValues`. Values are
+ * aggregated over the full session interval; counter ranges (min / max /
+ * avg / last / sum) are computed on the fly without materialising the
+ * full timeline.
+ *
+ * Common UE counters (non-exhaustive): "FrameTime", "GameThreadTime",
+ * "TotalGCBytesAllocated", any `TRACE_INT_VALUE` / `TRACE_FLOAT_VALUE`
+ * the running game emits, plus a long tail of stat-derived counters.
+ */
+USTRUCT(BlueprintType)
+struct FBridgePerfCounter
+{
+	GENERATED_BODY()
+
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Perf")
+	FString Name;
+
+	/** Group name as registered (e.g. "Memory", "Stats", or empty). */
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Perf")
+	FString Group;
+
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Perf")
+	FString Description;
+
+	/** True for `TRACE_FLOAT_VALUE`; false for `TRACE_INT_VALUE`. */
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Perf")
+	bool bFloatingPoint = false;
+
+	/** True for stats-style counters that are reset to 0 every frame. */
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Perf")
+	bool bResetEveryFrame = false;
+
+	/** Number of samples observed across the trace. */
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Perf")
+	int32 SampleCount = 0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Perf")
+	double MinValue = 0.0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Perf")
+	double MaxValue = 0.0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Perf")
+	double SumValue = 0.0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Perf")
+	double AverageValue = 0.0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Perf")
+	double LastValue = 0.0;
+};
+
+/**
  * One package's load-time cost (M5-5). Sourced from
  * `ILoadTimeProfilerProvider::CreatePackageDetailsTable` — the same table
  * Insights' "Asset Loading Insights" tab walks. Times are seconds-as-double
@@ -764,6 +818,16 @@ struct FBridgePerfTraceSummary
 	 *  256 KB per thread is enforced via `TopNPerThread` clamp. */
 	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Perf")
 	TArray<FBridgePerThreadHotScopes> PerThreadHotScopes;
+
+	// ─── M5-3: counters ──────────────────────────────────────────
+
+	/** Active trace counters with min/max/avg/last/sum aggregates over the
+	 *  full session interval. Ranked by `SampleCount` descending — busier
+	 *  counters surface first. Capped by `TopNCounters`; pass 0 at call time
+	 *  to skip the counter pass entirely. Counters with 0 samples are
+	 *  omitted. Empty when the trace did not include the `counter` channel. */
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Perf")
+	TArray<FBridgePerfCounter> Counters;
 
 	// ─── M5-5: load-time breakdown ───────────────────────────────
 
@@ -1308,10 +1372,14 @@ public:
 	 * Editor-only path is fine; this works in both editor and cmdlet.
 	 *
 	 * @param UtracePath       Absolute path to a `.utrace` file. File must exist.
-	 * @param TopN             Cap on global CPU + GPU hot-scope rows (1..1000). Clamped.
+	 * @param TopN             Cap on global CPU + GPU hot-scope rows + load-time
+	 *                         breakdown rows (1..1000). Clamped.
 	 * @param TopNPerThread    Cap on `TopScopes` per thread row (1..200). Clamped.
 	 *                         Setting to 0 skips the per-thread aggregation entirely
 	 *                         (saves time + memory on large traces).
+	 * @param TopNCounters     Cap on `Counters` rows ranked by SampleCount desc
+	 *                         (1..2000). Clamped. Set to 0 to skip the counter
+	 *                         walk entirely on huge traces.
 	 * @return                 FBridgePerfTraceSummary with `bSuccess=true` on
 	 *                         success, or `bSuccess=false` + populated `Error`
 	 *                         on any failure (file missing, module load fail,
@@ -1321,5 +1389,6 @@ public:
 	static FBridgePerfTraceSummary ParseTraceToSummary(
 		const FString& UtracePath,
 		int32 TopN = 20,
-		int32 TopNPerThread = 10);
+		int32 TopNPerThread = 10,
+		int32 TopNCounters = 100);
 };

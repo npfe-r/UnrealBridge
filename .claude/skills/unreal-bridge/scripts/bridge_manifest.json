@@ -31,7 +31,7 @@
       "TIMER"
     ]
   },
-  "generated_at": "2026-05-08T16:30:46+00:00",
+  "generated_at": "2026-05-08T16:35:42+00:00",
   "libraries": {
     "UnrealBridgeAnimLibrary": {
       "functions": {
@@ -17627,7 +17627,7 @@
           "returns": "Array[BridgeTraceChannelInfo]"
         },
         "parse_trace_to_summary": {
-          "doc": "X.parse_trace_to_summary(utrace_path, top_n=20, top_n_per_thread=10) -> BridgePerfTraceSummary",
+          "doc": "X.parse_trace_to_summary(utrace_path, top_n=20, top_n_per_thread=10, top_n_counters=100) -> BridgePerfTraceSummary",
           "params": [
             {
               "default": null,
@@ -17645,6 +17645,12 @@
               "default": "10",
               "has_default": true,
               "name": "top_n_per_thread",
+              "type": ""
+            },
+            {
+              "default": "100",
+              "has_default": true,
+              "name": "top_n_counters",
               "type": ""
             }
           ],
@@ -21025,6 +21031,19 @@
       "sample_paths",
       "total_bytes"
     ],
+    "BridgePerfCounter": [
+      "average_value",
+      "description",
+      "floating_point",
+      "group",
+      "last_value",
+      "max_value",
+      "min_value",
+      "name",
+      "reset_every_frame",
+      "sample_count",
+      "sum_value"
+    ],
     "BridgePerfHotScope": [
       "call_count",
       "name",
@@ -21061,6 +21080,7 @@
       "app_name",
       "build_version",
       "changelist",
+      "counters",
       "error",
       "file_size_bytes",
       "frame_avg_ms",
