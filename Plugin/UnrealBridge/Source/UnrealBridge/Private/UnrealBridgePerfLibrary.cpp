@@ -4013,6 +4013,63 @@ FBridgeGpuPassTimings UUnrealBridgePerfLibrary::GetPerPassGpuTimings()
 	return Out;
 }
 
+// ─── M8-3 BeginInsightsForTrace ──────────────────────────────────
+
+FBridgeInsightsLaunchResult UUnrealBridgePerfLibrary::BeginInsightsForTrace(const FString& UtracePath)
+{
+	FBridgeInsightsLaunchResult Out;
+	Out.TracePath = UtracePath;
+
+	IFileManager& FileMgr = IFileManager::Get();
+	if (!FileMgr.FileExists(*UtracePath))
+	{
+		Out.Error = FString::Printf(TEXT("trace file not found: %s"), *UtracePath);
+		return Out;
+	}
+
+	// Resolve UnrealInsights.exe under <EngineRoot>/Engine/Binaries/Win64/.
+	const FString InsightsExe = FPaths::Combine(
+		FPaths::EngineDir(), TEXT("Binaries"), TEXT("Win64"), TEXT("UnrealInsights.exe"));
+	if (!FileMgr.FileExists(*InsightsExe))
+	{
+		Out.Error = FString::Printf(TEXT("UnrealInsights.exe not found at %s"), *InsightsExe);
+		return Out;
+	}
+	Out.InsightsExePath = InsightsExe;
+
+	// Args: -OpenTraceFile="<path>". Quote the path (may contain spaces).
+	const FString Args = FString::Printf(TEXT("-OpenTraceFile=\"%s\""), *UtracePath);
+
+	// Launch detached; we don't want to wait or capture stdout. bLaunchHidden=false
+	// so the GUI is visible. CreateProc returns a handle even on failure — check
+	// IsValid before pulling the PID.
+	uint32 ProcessId = 0;
+	FProcHandle Handle = FPlatformProcess::CreateProc(
+		*InsightsExe,
+		*Args,
+		/*bLaunchDetached=*/ true,
+		/*bLaunchHidden=*/ false,
+		/*bLaunchReallyHidden=*/ false,
+		&ProcessId,
+		/*PriorityModifier=*/ 0,
+		/*OptionalWorkingDirectory=*/ nullptr,
+		/*PipeWriteChild=*/ nullptr);
+
+	if (!Handle.IsValid())
+	{
+		Out.Error = TEXT("CreateProc returned invalid handle — check Windows event log for launch failure");
+		return Out;
+	}
+
+	// Detached process: we don't wait. Close the handle so it doesn't leak;
+	// the actual process keeps running.
+	FPlatformProcess::CloseProc(Handle);
+
+	Out.bSuccess = true;
+	Out.ProcessId = static_cast<int64>(ProcessId);
+	return Out;
+}
+
 // ─── M8-2 ComparePerfSnapshots ───────────────────────────────────
 
 FBridgePerfSnapshotDelta UUnrealBridgePerfLibrary::ComparePerfSnapshots(

@@ -608,6 +608,31 @@ struct FBridgePerfHotScope
 	int32 CallCount = 0;
 };
 
+/** Result of `begin_insights_for_trace` (M8-3). */
+USTRUCT(BlueprintType)
+struct FBridgeInsightsLaunchResult
+{
+	GENERATED_BODY()
+
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Perf")
+	bool bSuccess = false;
+
+	/** Absolute path to UnrealInsights.exe that was launched (echoed back). */
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Perf")
+	FString InsightsExePath;
+
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Perf")
+	FString TracePath;
+
+	/** OS process id of the launched Insights instance (0 on failure). */
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Perf")
+	int64 ProcessId = 0;
+
+	/** Failure diagnostic when bSuccess=false. */
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Perf")
+	FString Error;
+};
+
 /**
  * Per-field delta between two `FBridgePerfSnapshot` instances (M8-2).
  * Convention: every Delta field is `After - Before`. Positive memory deltas
@@ -2120,4 +2145,17 @@ public:
 		const FBridgePerfSnapshot& Before,
 		const FBridgePerfSnapshot& After,
 		float RegressionThreshold = 0.10f);
+
+	/**
+	 * Launch UnrealInsights.exe pointing at a `.utrace` file (M8-3). Detached
+	 * (Insights runs as its own process); the bridge call returns as soon as
+	 * `FPlatformProcess::CreateProc` succeeds. Use when `parse_*_trace_to_summary`
+	 * isn't enough and the agent wants a human to take over with the visual
+	 * timeline.
+	 *
+	 * Insights binary location: `<EngineRoot>/Engine/Binaries/Win64/UnrealInsights.exe`.
+	 * Resolved automatically via `FPaths::EngineDir()`.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "UnrealBridge|Perf")
+	static FBridgeInsightsLaunchResult BeginInsightsForTrace(const FString& UtracePath);
 };

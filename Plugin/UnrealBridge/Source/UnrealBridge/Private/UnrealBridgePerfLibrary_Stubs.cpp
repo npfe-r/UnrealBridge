@@ -82,4 +82,10 @@ FBridgePerfSnapshotDelta UUnrealBridgePerfLibrary::ComparePerfSnapshots(
 	return FBridgePerfSnapshotDelta{};
 }
 
+FBridgeInsightsLaunchResult UUnrealBridgePerfLibrary::BeginInsightsForTrace(const FString& UtracePath)
+{
+	UE_LOG(LogTemp, Warning, TEXT("UUnrealBridgePerfLibrary::BeginInsightsForTrace requires UE 5.7+ — call ignored on this engine version"));
+	return FBridgeInsightsLaunchResult{};
+}
+
 #endif // UE_VERSION_OLDER_THAN(5, 7, 0)

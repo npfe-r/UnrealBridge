@@ -31,7 +31,7 @@
       "TIMER"
     ]
   },
-  "generated_at": "2026-05-08T17:08:18+00:00",
+  "generated_at": "2026-05-08T17:10:28+00:00",
   "libraries": {
     "UnrealBridgeAnimLibrary": {
       "functions": {
@@ -17311,6 +17311,18 @@
           ],
           "returns": "BridgeAllMaterialsAnalysis"
         },
+        "begin_insights_for_trace": {
+          "doc": "X.begin_insights_for_trace(utrace_path) -> BridgeInsightsLaunchResult",
+          "params": [
+            {
+              "default": null,
+              "has_default": false,
+              "name": "utrace_path",
+              "type": ""
+            }
+          ],
+          "returns": "BridgeInsightsLaunchResult"
+        },
         "clear_hitch_log": {
           "doc": "X.clear_hitch_log() -> None",
           "params": [],
@@ -20644,6 +20656,13 @@
       "graph_name",
       "kind",
       "node_guid"
+    ],
+    "BridgeInsightsLaunchResult": [
+      "error",
+      "insights_exe_path",
+      "process_id",
+      "success",
+      "trace_path"
     ],
     "BridgeInterfaceInfo": [
       "functions",

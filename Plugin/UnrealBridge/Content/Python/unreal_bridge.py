@@ -16,7 +16,7 @@ structural rather than mnemonic.
 
 import unreal
 
-_GENERATED_AT = '2026-05-08T17:08:18+00:00'
+_GENERATED_AT = '2026-05-08T17:10:28+00:00'
 _UE_VERSION = '5.7.1-48512491+++UE5+Release-5.7'
 
 class Anim:
@@ -4586,6 +4586,11 @@ class Perf:
     def analyze_all_materials(*, top_n=30):
         """X.analyze_all_materials(top_n=30) -> BridgeAllMaterialsAnalysis"""
         return unreal.UnrealBridgePerfLibrary.analyze_all_materials(top_n)
+
+    @staticmethod
+    def begin_insights_for_trace(*, utrace_path):
+        """X.begin_insights_for_trace(utrace_path) -> BridgeInsightsLaunchResult"""
+        return unreal.UnrealBridgePerfLibrary.begin_insights_for_trace(utrace_path)
 
     @staticmethod
     def clear_hitch_log():

@@ -365,6 +365,22 @@ UnrealEditor-Cmd.exe MyGame.uproject -run=Cook -targetplatform=Windows -trace=co
 
 ---
 
+## begin_insights_for_trace(utrace_path) -> FBridgeInsightsLaunchResult
+
+**(M8-3)** Launch UnrealInsights.exe on a `.utrace` file. Detached — the call returns as soon as the process is created; Insights runs in its own window. Use when `parse_*_trace_to_summary` isn't enough and a human needs to take over with the visual timeline.
+
+| Field | Type | Notes |
+|---|---|---|
+| `success` | bool | True when CreateProc succeeded. |
+| `insights_exe_path` | str | Path to the launched UnrealInsights.exe. |
+| `trace_path` | str | Echoed back. |
+| `process_id` | int64 | OS process id of the launched Insights instance. |
+| `error` | str | Failure diagnostic. |
+
+**Path resolution** — Insights is at `<EngineRoot>/Engine/Binaries/Win64/UnrealInsights.exe`. Resolved via `FPaths::EngineDir()`.
+
+---
+
 ## compare_perf_snapshots(before, after, regression_threshold=0.10) -> FBridgePerfSnapshotDelta
 
 **(M8-2)** Diff two `FBridgePerfSnapshot` instances. Returns per-field deltas (`After - Before`) plus a list of human-readable regression strings for any metric that changed by ≥ `regression_threshold` (default 10%).
