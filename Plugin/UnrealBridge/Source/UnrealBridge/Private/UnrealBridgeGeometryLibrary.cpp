@@ -30,6 +30,10 @@
 #include "GeometryScript/MeshPrimitiveFunctions.h"
 #include "GeometryScript/MeshTransformFunctions.h"
 #include "GeometryScript/MeshRemeshFunctions.h"
+#include "GeometryScript/MeshVoxelFunctions.h"
+#include "GeometryScript/MeshUVFunctions.h"
+#include "GeometryScript/MeshBasicEditFunctions.h"
+#include "Engine/Texture2D.h"
 
 #define LOCTEXT_NAMESPACE "UnrealBridgeGeometry"
 
@@ -503,6 +507,124 @@ bool UUnrealBridgeGeometryLibrary::MeshUniformRemesh(int32 Handle, int32 TargetT
 
 	UDynamicMesh* Result = UGeometryScriptLibrary_RemeshingFunctions::ApplyUniformRemesh(
 		Mesh, RemeshOptions, UniformOptions, /*Debug=*/nullptr);
+	return Result == Mesh;
+}
+
+bool UUnrealBridgeGeometryLibrary::MeshDisplaceFromTexture(int32 Handle, const FString& TexturePath, float Magnitude, int32 UVChannel)
+{
+	using namespace BridgeGeometryImpl;
+	UDynamicMesh* Mesh = ResolveHandle(Handle);
+	if (!Mesh)
+	{
+		return false;
+	}
+	UTexture2D* Tex = LoadObject<UTexture2D>(nullptr, *TexturePath);
+	if (!Tex)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("UnrealBridge|Geometry: could not load Texture2D '%s'"), *TexturePath);
+		return false;
+	}
+
+	FGeometryScriptDisplaceFromTextureOptions Options;
+	Options.Magnitude = Magnitude;
+	// UVScale, UVOffset, Center, ImageChannel — engine defaults (1, 0, 0.5, 0).
+
+	FGeometryScriptMeshSelection EmptySelection;  // empty = whole mesh
+	UDynamicMesh* Result = UGeometryScriptLibrary_MeshDeformFunctions::ApplyDisplaceFromTextureMap(
+		Mesh, Tex, EmptySelection, Options, FMath::Max(0, UVChannel), /*Debug=*/nullptr);
+	return Result == Mesh;
+}
+
+bool UUnrealBridgeGeometryLibrary::MeshVoxelMerge(const TArray<int32>& Handles, float CellSizeCm)
+{
+	using namespace BridgeGeometryImpl;
+	if (Handles.Num() == 0)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("UnrealBridge|Geometry: MeshVoxelMerge requires ≥1 handle"));
+		return false;
+	}
+	UDynamicMesh* Target = ResolveHandle(Handles[0]);
+	if (!Target)
+	{
+		return false;
+	}
+
+	// Append every subsequent handle's geometry into the target (identity transform).
+	for (int32 i = 1; i < Handles.Num(); ++i)
+	{
+		UDynamicMesh* Source = ResolveHandle(Handles[i]);
+		if (!Source)
+		{
+			UE_LOG(LogTemp, Warning, TEXT("UnrealBridge|Geometry: MeshVoxelMerge skipping invalid handle %d at index %d"), Handles[i], i);
+			continue;
+		}
+		UGeometryScriptLibrary_MeshBasicEditFunctions::AppendMesh(
+			Target, Source, FTransform::Identity,
+			/*bDeferChangeNotifications=*/true,
+			FGeometryScriptAppendMeshOptions(),
+			/*Debug=*/nullptr);
+	}
+
+	// Solidify the merged result.
+	FGeometryScriptSolidifyOptions Options;
+	Options.GridParameters.SizeMethod   = EGeometryScriptGridSizingMethod::GridCellSize;
+	Options.GridParameters.GridCellSize = FMath::Max(0.001f, CellSizeCm);
+	UDynamicMesh* Result = UGeometryScriptLibrary_MeshVoxelFunctions::ApplyMeshSolidify(
+		Target, Options, /*Debug=*/nullptr);
+	return Result == Target;
+}
+
+bool UUnrealBridgeGeometryLibrary::MeshUVUnwrap(int32 Handle, const FString& Method)
+{
+	using namespace BridgeGeometryImpl;
+	UDynamicMesh* Mesh = ResolveHandle(Handle);
+	if (!Mesh)
+	{
+		return false;
+	}
+
+	const FBox Bounds = UGeometryScriptLibrary_MeshQueryFunctions::GetMeshBoundingBox(Mesh);
+	if (!Bounds.IsValid)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("UnrealBridge|Geometry: MeshUVUnwrap on empty mesh"));
+		return false;
+	}
+
+	// Ensure UV channel 0 exists.
+	UGeometryScriptLibrary_MeshUVFunctions::SetNumUVSets(Mesh, FMath::Max(1, 1), /*Debug=*/nullptr);
+
+	const FVector  Center = Bounds.GetCenter();
+	const FVector  Size   = Bounds.GetSize();
+	const FTransform PlaneXform(FRotator::ZeroRotator, Center, Size);  // FTransform(rot, loc, scale)
+	FGeometryScriptMeshSelection EmptySelection;
+	UDynamicMesh* Result = nullptr;
+	const FString Lower = Method.ToLower();
+
+	if (Lower == TEXT("box"))
+	{
+		Result = UGeometryScriptLibrary_MeshUVFunctions::SetMeshUVsFromBoxProjection(
+			Mesh, /*UVSetIndex=*/0, PlaneXform, EmptySelection,
+			/*MinIslandTriCount=*/2, /*Debug=*/nullptr);
+	}
+	else if (Lower == TEXT("cylinder"))
+	{
+		Result = UGeometryScriptLibrary_MeshUVFunctions::SetMeshUVsFromCylinderProjection(
+			Mesh, /*UVSetIndex=*/0, PlaneXform, EmptySelection,
+			/*SplitAngle=*/45.0f, /*Debug=*/nullptr);
+	}
+	else if (Lower == TEXT("plane"))
+	{
+		Result = UGeometryScriptLibrary_MeshUVFunctions::SetMeshUVsFromPlanarProjection(
+			Mesh, /*UVSetIndex=*/0, PlaneXform, EmptySelection, /*Debug=*/nullptr);
+	}
+	else
+	{
+		UE_LOG(LogTemp, Warning,
+			TEXT("UnrealBridge|Geometry: unknown UV unwrap method '%s' (expected box / cylinder / plane)"),
+			*Method);
+		return false;
+	}
+
 	return Result == Mesh;
 }
 

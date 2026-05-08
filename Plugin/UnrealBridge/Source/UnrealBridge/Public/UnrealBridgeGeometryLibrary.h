@@ -5,6 +5,7 @@
 #include "UnrealBridgeGeometryLibrary.generated.h"
 
 class UMaterialInterface;
+class UTexture2D;
 
 /**
  * Static facts about a UDynamicMesh — what M4-6 returns. Field names follow
@@ -329,4 +330,67 @@ public:
 	 */
 	UFUNCTION(BlueprintCallable, Category = "UnrealBridge|Geometry")
 	static bool MeshUniformRemesh(int32 Handle, int32 TargetTriCount);
+
+	// ─── M5-3 — Texture-driven displacement ──────────────────────
+
+	/**
+	 * Displace mesh vertices along normals using a heightmap texture. Wraps
+	 * `MeshDeformFunctions::ApplyDisplaceFromTextureMap`.
+	 *
+	 * @param Handle      Target mesh.
+	 * @param TexturePath Content path of a UTexture2D. **Must be set to**
+	 *                    `CompressionSettings = TC_VectorDisplacementmap` (and
+	 *                    `sRGB = false`) so the runtime can read raw color —
+	 *                    default RuntimeBulkData compression hides the source
+	 *                    pixels (roadmap pit #11).
+	 * @param Magnitude   Displacement scale in cm. Engine default 1.0 — bump to
+	 *                    10-100 for visible displacement on cm-scale meshes.
+	 * @param UVChannel   Which UV layer's coordinates drive the texture sample.
+	 *                    Defaults to 0; mesh must have at least UVChannel+1 layers
+	 *                    (mesh_uv_unwrap can populate channel 0 if missing).
+	 * @return true on success.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "UnrealBridge|Geometry")
+	static bool MeshDisplaceFromTexture(int32 Handle, const FString& TexturePath, float Magnitude, int32 UVChannel = 0);
+
+	// ─── M5-6 — Voxel merge / solidify ───────────────────────────
+
+	/**
+	 * Voxel-solidify a chain of meshes into a single watertight result. The first
+	 * handle in `Handles` is the merge target; remaining handles are appended into
+	 * it via `AppendMesh` (identity transform), then `ApplyMeshSolidify` runs on
+	 * the combined mesh with `GridCellSize=CellSizeCm`.
+	 *
+	 * Output writes back into `Handles[0]`. Other handles are not modified.
+	 *
+	 * @param Handles    Ordered handle list. `Handles[0]` is mutated.
+	 * @param CellSizeCm Voxel grid cell size in cm. Smaller = higher fidelity but
+	 *                   exponentially more memory + time. 0.5-2.0 cm typical for
+	 *                   character-scale; 5-20 cm for environment-scale.
+	 * @return true on success.
+	 *
+	 * Cost: O((bounds_volume / cell_size³)). 1cm cells on a 1m³ region = 1M voxels;
+	 * easily blocks the GameThread for seconds. Per
+	 * feedback_bridge_exec_holds_gamethread, isolate dense voxel calls in their
+	 * own bridge exec.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "UnrealBridge|Geometry")
+	static bool MeshVoxelMerge(const TArray<int32>& Handles, float CellSizeCm);
+
+	// ─── M5-7 — Auto UV unwrap (box / cylinder / plane projections) ─
+
+	/**
+	 * Generate UVs on UV channel 0 by projection. Wraps `MeshUVFunctions::Set-
+	 * MeshUVsFrom*Projection`. The projection volume is centered on the mesh's
+	 * local-space bounding box and sized to match it.
+	 *
+	 * @param Handle Target mesh.
+	 * @param Method Case-insensitive: `"box"` (tri-planar projection, hardest
+	 *               UVs but no stretching), `"cylinder"` (good for capsule-like
+	 *               meshes; SplitAngle=45°), `"plane"` (single planar projection
+	 *               from +Z, simplest but worst on non-planar geometry).
+	 * @return true on success. Unknown method strings fail loudly + return false.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "UnrealBridge|Geometry")
+	static bool MeshUVUnwrap(int32 Handle, const FString& Method);
 };

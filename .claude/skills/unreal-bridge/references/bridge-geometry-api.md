@@ -30,7 +30,12 @@ Hard contract:
 - `mesh_transform` (M5-8)
 - `mesh_uniform_remesh` (M5-9, "triangulate" in roadmap shorthand)
 
-Remaining: M5-3 displace, M5-6 voxel_merge, M5-7 UV unwrap, M5-10/11/12 selection/extrude/sweep, M6-1/2 bake — phases 5-7.
+**Phase 5 — displace + voxel + UV unwrap (3 ops)**:
+- `mesh_displace_from_texture` (M5-3)
+- `mesh_voxel_merge` (M5-6) — multi-handle merge → solidify
+- `mesh_uv_unwrap` (M5-7) — box / cylinder / plane projections
+
+Remaining: M5-10/11/12 selection/extrude/sweep, M6-1/2 bake — phases 6-7.
 
 ---
 

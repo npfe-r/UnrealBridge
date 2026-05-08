@@ -117,4 +117,22 @@ bool UUnrealBridgeGeometryLibrary::MeshUniformRemesh(int32 Handle, int32 TargetT
 	return bool{};
 }
 
+bool UUnrealBridgeGeometryLibrary::MeshDisplaceFromTexture(int32 Handle, const FString& TexturePath, float Magnitude, int32 UVChannel)
+{
+	UE_LOG(LogTemp, Warning, TEXT("UUnrealBridgeGeometryLibrary::MeshDisplaceFromTexture requires UE 5.7+ — call ignored on this engine version"));
+	return bool{};
+}
+
+bool UUnrealBridgeGeometryLibrary::MeshVoxelMerge(const TArray<int32>& Handles, float CellSizeCm)
+{
+	UE_LOG(LogTemp, Warning, TEXT("UUnrealBridgeGeometryLibrary::MeshVoxelMerge requires UE 5.7+ — call ignored on this engine version"));
+	return bool{};
+}
+
+bool UUnrealBridgeGeometryLibrary::MeshUVUnwrap(int32 Handle, const FString& Method)
+{
+	UE_LOG(LogTemp, Warning, TEXT("UUnrealBridgeGeometryLibrary::MeshUVUnwrap requires UE 5.7+ — call ignored on this engine version"));
+	return bool{};
+}
+
 #endif // UE_VERSION_OLDER_THAN(5, 7, 0)
