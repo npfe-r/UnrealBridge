@@ -31,7 +31,7 @@
       "TIMER"
     ]
   },
-  "generated_at": "2026-05-08T16:25:48+00:00",
+  "generated_at": "2026-05-08T16:30:46+00:00",
   "libraries": {
     "UnrealBridgeAnimLibrary": {
       "functions": {
@@ -21030,6 +21030,16 @@
       "name",
       "total_ms"
     ],
+    "BridgePerfLoadTimeRow": [
+      "async_loading_thread_ms",
+      "export_count",
+      "exports_size_bytes",
+      "header_size_bytes",
+      "main_thread_ms",
+      "package_name",
+      "serialized_size_bytes",
+      "total_loading_ms"
+    ],
     "BridgePerfSamplingState": [
       "active",
       "include_u_object_stats",
@@ -21059,6 +21069,7 @@
       "game_frame_count",
       "gpu_hot_scopes",
       "hot_scopes",
+      "load_time_breakdown",
       "per_thread_hot_scopes",
       "platform",
       "project_name",

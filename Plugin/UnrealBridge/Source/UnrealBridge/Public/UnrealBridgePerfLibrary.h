@@ -609,6 +609,50 @@ struct FBridgePerfHotScope
 };
 
 /**
+ * One package's load-time cost (M5-5). Sourced from
+ * `ILoadTimeProfilerProvider::CreatePackageDetailsTable` — the same table
+ * Insights' "Asset Loading Insights" tab walks. Times are seconds-as-double
+ * converted to ms for consistency with the rest of the perf library.
+ */
+USTRUCT(BlueprintType)
+struct FBridgePerfLoadTimeRow
+{
+	GENERATED_BODY()
+
+	/** Package name as recorded in the trace (e.g. "/Game/Maps/Forest"). */
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Perf")
+	FString PackageName;
+
+	/** Sum of MainThreadTime + AsyncLoadingThreadTime, in milliseconds. */
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Perf")
+	double TotalLoadingMs = 0.0;
+
+	/** Time spent loading this package on the main thread, ms. */
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Perf")
+	double MainThreadMs = 0.0;
+
+	/** Time spent on the async loading thread, ms. */
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Perf")
+	double AsyncLoadingThreadMs = 0.0;
+
+	/** Total bytes serialized for this package (`TotalSerializedSize`). */
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Perf")
+	int64 SerializedSizeBytes = 0;
+
+	/** Header bytes (`SerializedHeaderSize`). */
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Perf")
+	int64 HeaderSizeBytes = 0;
+
+	/** Export-table bytes (`SerializedExportsSize`). */
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Perf")
+	int64 ExportsSizeBytes = 0;
+
+	/** Number of exports recorded under this package. */
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Perf")
+	int32 ExportCount = 0;
+};
+
+/**
  * One thread's top-N hot scopes (M5-2). Walked by `ParseTraceToSummary` for
  * every CPU thread the IThreadProvider reports — `GameThread`, `RenderThread`,
  * `RHIThread`, every `WorkerThread N`, etc. Each row's `TopScopes` is capped
@@ -720,6 +764,16 @@ struct FBridgePerfTraceSummary
 	 *  256 KB per thread is enforced via `TopNPerThread` clamp. */
 	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Perf")
 	TArray<FBridgePerThreadHotScopes> PerThreadHotScopes;
+
+	// ─── M5-5: load-time breakdown ───────────────────────────────
+
+	/** Top-N packages by total load time across the trace's full interval.
+	 *  Sourced from `ILoadTimeProfilerProvider::CreatePackageDetailsTable`.
+	 *  Empty when the trace did not include the `loadtime` channel. Sorted
+	 *  by `TotalLoadingMs` descending. Use to attribute cold-load 30 s+
+	 *  spikes to specific packages. */
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Perf")
+	TArray<FBridgePerfLoadTimeRow> LoadTimeBreakdown;
 
 	/** True when Analyze + every provider read succeeded. */
 	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Perf")

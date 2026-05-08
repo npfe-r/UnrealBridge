@@ -205,6 +205,7 @@ Parse a `.utrace` file (output of `start_trace_capture` / `stop_trace_capture` o
 | `hot_scopes` | array of `FBridgePerfHotScope` | Top-N CPU timers across **all** CPU thread timelines, ranked by total inclusive time desc. |
 | `gpu_hot_scopes` | array of `FBridgePerfHotScope` | **(M5-1)** Top-N GPU timers across every GPU queue (incl. legacy GPU1/GPU2 timelines for old traces). Empty when the trace did not include the `gpu` channel. |
 | `per_thread_hot_scopes` | array of `FBridgePerThreadHotScopes` | **(M5-2)** One row per CPU thread (`GameThread`, `RenderThread N`, `RHIThread`, every `WorkerThread`, `FAssetDataGatherer`, …). Sorted by `total_cpu_ms` desc. |
+| `load_time_breakdown` | array of `FBridgePerfLoadTimeRow` | **(M5-5)** Top-N packages by total load time (main thread + async loading thread). Empty when the trace lacks the `loadtime` channel **or** was captured after engine init when most packages were already cached. For useful cold-load attribution, capture from engine startup (`-trace=loadtime,frame,cpu` on the editor command line). |
 | `success` | bool | True on full success; on any failure the call returns with `success=False` + populated `error`. |
 | `error` | str | Human-readable failure reason. |
 
@@ -215,6 +216,19 @@ Parse a `.utrace` file (output of `start_trace_capture` / `stop_trace_capture` o
 | `name` | str | Timer name as registered (e.g. `RenderGraphExecute`, `FEngineLoop::Tick`). Bit-inverted metadata-tagged events are resolved back via `GetOriginalTimerIdFromMetadata`, so events with per-instance metadata collapse onto their canonical timer. |
 | `total_ms` | double | Sum of inclusive time across every invocation. |
 | `call_count` | int32 | Number of times the scope opened during the trace. |
+
+### `FBridgePerfLoadTimeRow` row
+
+| Field | Type | Notes |
+|---|---|---|
+| `package_name` | str | E.g. `"/Game/Maps/Forest"`. |
+| `total_loading_ms` | double | `main_thread_ms + async_loading_thread_ms`. |
+| `main_thread_ms` | double | Time spent loading on the main thread. |
+| `async_loading_thread_ms` | double | Time on the async loading thread (a.k.a. ALT). |
+| `serialized_size_bytes` | int64 | `TotalSerializedSize` reported by the loadtime tracer. |
+| `header_size_bytes` | int64 | `SerializedHeaderSize`. |
+| `exports_size_bytes` | int64 | `SerializedExportsSize`. |
+| `export_count` | int32 | Number of exports recorded under this package. |
 
 ### `FBridgePerThreadHotScopes` row
 
@@ -243,6 +257,7 @@ Dominated by `Analyze()` — typically 1-10s per 100 MB of trace. Synchronous, b
 | Frame stats | `frame` |
 | `hot_scopes` + `per_thread_hot_scopes` | `cpu` |
 | `gpu_hot_scopes` | `gpu` |
+| `load_time_breakdown` | `loadtime` (typically + capture from engine startup) |
 
 ### Example
 

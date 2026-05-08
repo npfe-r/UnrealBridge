@@ -3008,6 +3008,8 @@ TArray<FBridgeTraceChannelInfo> UUnrealBridgePerfLibrary::ListTraceChannels()
 #include "TraceServices/Model/Frames.h"
 #include "TraceServices/Model/TimingProfiler.h"
 #include "TraceServices/Model/Threads.h"
+#include "TraceServices/Model/LoadTimeProfiler.h"
+#include "TraceServices/Containers/Tables.h"
 #include "ProfilingDebugging/MiscTrace.h"  // ETraceFrameType
 
 namespace BridgePerfTraceImpl
@@ -3338,6 +3340,60 @@ FBridgePerfTraceSummary UUnrealBridgePerfLibrary::ParseTraceToSummary(
 			}
 
 			Out.GpuHotScopes = RankAndConvert(GpuAggregates, TimerNames, TopN);
+		}
+	}
+
+	// ── M5-5: load-time breakdown by package ──
+	// Empty when the trace lacks the `loadtime` channel — the provider exists
+	// but its tables are empty.
+	if (const TraceServices::ILoadTimeProfilerProvider* LoadProv = TraceServices::ReadLoadTimeProfilerProvider(*Session))
+	{
+		// Use the full-session interval. CreatePackageDetailsTable allocates
+		// a heap-owned ITable that we delete after walking.
+		TraceServices::ITable<TraceServices::FPackagesTableRow>* PkgTable =
+			LoadProv->CreatePackageDetailsTable(-DBL_MAX, DBL_MAX);
+		if (PkgTable)
+		{
+			TraceServices::ITableReader<TraceServices::FPackagesTableRow>* Reader = PkgTable->CreateReader();
+			if (Reader)
+			{
+				TArray<FBridgePerfLoadTimeRow> AllRows;
+				AllRows.Reserve(static_cast<int32>(PkgTable->GetRowCount()));
+				while (Reader->IsValid())
+				{
+					if (const TraceServices::FPackagesTableRow* Row = Reader->GetCurrentRow())
+					{
+						FBridgePerfLoadTimeRow Out2;
+						const TCHAR* Name = (Row->PackageInfo && Row->PackageInfo->Name) ? Row->PackageInfo->Name : TEXT("<unknown>");
+						Out2.PackageName            = FString(Name);
+						Out2.MainThreadMs           = Row->MainThreadTime * 1000.0;
+						Out2.AsyncLoadingThreadMs   = Row->AsyncLoadingThreadTime * 1000.0;
+						Out2.TotalLoadingMs         = Out2.MainThreadMs + Out2.AsyncLoadingThreadMs;
+						Out2.SerializedSizeBytes    = static_cast<int64>(Row->TotalSerializedSize);
+						Out2.HeaderSizeBytes        = static_cast<int64>(Row->SerializedHeaderSize);
+						Out2.ExportsSizeBytes       = static_cast<int64>(Row->SerializedExportsSize);
+						Out2.ExportCount            = static_cast<int32>(Row->SerializedExportsCount);
+						AllRows.Add(MoveTemp(Out2));
+					}
+					Reader->NextRow();
+				}
+				delete Reader;
+
+				AllRows.Sort(
+					[](const FBridgePerfLoadTimeRow& A, const FBridgePerfLoadTimeRow& B)
+					{
+						return A.TotalLoadingMs > B.TotalLoadingMs;
+					});
+
+				const int32 ClampedTopN = FMath::Clamp(TopN, 1, 1000);
+				const int32 Take = FMath::Min(AllRows.Num(), ClampedTopN);
+				Out.LoadTimeBreakdown.Reserve(Take);
+				for (int32 i = 0; i < Take; ++i)
+				{
+					Out.LoadTimeBreakdown.Add(MoveTemp(AllRows[i]));
+				}
+			}
+			delete PkgTable;
 		}
 	}
 
