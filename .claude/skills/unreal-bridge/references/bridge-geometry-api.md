@@ -41,7 +41,11 @@ Hard contract:
 - `extrude_selection` (M5-11)
 - `sweep_along_spline` (M5-12)
 
-Remaining: M6-1/2 bake — phase 7. Then Lane 2 closes 23/23.
+**Phase 7 — bake (2 ops, closes Lane 2 23/23)**:
+- `bake_normals_to_texture` (M6-1) — same-mesh tangent-space normal bake → new Texture2D asset
+- `bake_occlusion_to_vertex_color` (M6-2) — same-mesh AO bake → vertex colors in-place
+
+Lane 2 = 23/23 ops shipped. Lane 3 PCG read+trigger lands separately.
 
 ---
 

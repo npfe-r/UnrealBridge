@@ -165,4 +165,16 @@ bool UUnrealBridgeGeometryLibrary::SweepAlongSpline(int32 Handle, const TArray<F
 	return bool{};
 }
 
+FString UUnrealBridgeGeometryLibrary::BakeNormalsToTexture(int32 Handle, const FString& NewTexturePath, int32 Resolution)
+{
+	UE_LOG(LogTemp, Warning, TEXT("UUnrealBridgeGeometryLibrary::BakeNormalsToTexture requires UE 5.7+ — call ignored on this engine version"));
+	return FString{};
+}
+
+bool UUnrealBridgeGeometryLibrary::BakeOcclusionToVertexColor(int32 Handle, int32 OcclusionRays)
+{
+	UE_LOG(LogTemp, Warning, TEXT("UUnrealBridgeGeometryLibrary::BakeOcclusionToVertexColor requires UE 5.7+ — call ignored on this engine version"));
+	return bool{};
+}
+
 #endif // UE_VERSION_OLDER_THAN(5, 7, 0)

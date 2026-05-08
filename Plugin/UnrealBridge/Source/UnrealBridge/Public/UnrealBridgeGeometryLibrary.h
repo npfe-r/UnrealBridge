@@ -470,4 +470,39 @@ public:
 		const FString& ActorLabel,
 		const FString& ComponentName,
 		int32 NumPathSamples = 32);
+
+	// ─── M6-1/M6-2 — Bake → texture / vertex colors ──────────────
+
+	/**
+	 * Bake the mesh's tangent-space normals into a new Texture2D asset on disk.
+	 * Same-mesh bake (target=source). Wraps `MeshBakeFunctions::BakeTexture` with
+	 * `[MakeBakeTypeTangentNormal()]`, then `CreateNewAssetFunctions::CreateNew-
+	 * Texture2DAsset` to persist the transient bake result.
+	 *
+	 * Editor-world only (`WITH_EDITOR` gate). Per `feedback_split_asset_ops`,
+	 * keep this in its own bridge exec — texture asset creation triggers a
+	 * modal on the GameThread.
+	 *
+	 * @param Handle           Source mesh (must have UVs on channel 0).
+	 * @param NewTexturePath   Content path, e.g. `/Game/Bakes/T_Normals`.
+	 * @param Resolution       Texture edge size in px. Mapped to the closest
+	 *                         `EGeometryScriptBakeResolution` (16-8192). Values
+	 *                         outside that range fall back to 256.
+	 * @return Saved asset path on success; "" on failure.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "UnrealBridge|Geometry")
+	static FString BakeNormalsToTexture(int32 Handle, const FString& NewTexturePath, int32 Resolution);
+
+	/**
+	 * Bake ambient occlusion into the mesh's vertex colors in-place. Same-mesh
+	 * bake. Wraps `MeshBakeFunctions::BakeVertex` with `OutputMode=RGBA`,
+	 * `RGBA=MakeBakeTypeAmbientOcclusion(...)`.
+	 *
+	 * @param Handle         Target mesh.
+	 * @param OcclusionRays  Hemisphere sample count (engine default 16; 16-64
+	 *                       typical, 256 for high-quality).
+	 * @return true on success.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "UnrealBridge|Geometry")
+	static bool BakeOcclusionToVertexColor(int32 Handle, int32 OcclusionRays = 16);
 };

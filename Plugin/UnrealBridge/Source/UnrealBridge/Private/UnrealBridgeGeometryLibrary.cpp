@@ -35,6 +35,7 @@
 #include "GeometryScript/MeshBasicEditFunctions.h"
 #include "GeometryScript/MeshSelectionFunctions.h"
 #include "GeometryScript/MeshModelingFunctions.h"
+#include "GeometryScript/MeshBakeFunctions.h"
 #include "Engine/Texture2D.h"
 #include "Components/SplineComponent.h"
 
@@ -151,6 +152,24 @@ namespace BridgeGeometryImpl
 			}
 		}
 		return nullptr;
+	}
+
+	EGeometryScriptBakeResolution PixelsToBakeResolution(int32 Pixels)
+	{
+		switch (Pixels)
+		{
+			case 16:    return EGeometryScriptBakeResolution::Resolution16;
+			case 32:    return EGeometryScriptBakeResolution::Resolution32;
+			case 64:    return EGeometryScriptBakeResolution::Resolution64;
+			case 128:   return EGeometryScriptBakeResolution::Resolution128;
+			case 256:   return EGeometryScriptBakeResolution::Resolution256;
+			case 512:   return EGeometryScriptBakeResolution::Resolution512;
+			case 1024:  return EGeometryScriptBakeResolution::Resolution1024;
+			case 2048:  return EGeometryScriptBakeResolution::Resolution2048;
+			case 4096:  return EGeometryScriptBakeResolution::Resolution4096;
+			case 8192:  return EGeometryScriptBakeResolution::Resolution8192;
+			default:    return EGeometryScriptBakeResolution::Resolution256;
+		}
 	}
 
 	bool ParseBooleanOp(const FString& Op, EGeometryScriptBooleanOperation& Out)
@@ -760,6 +779,91 @@ bool UUnrealBridgeGeometryLibrary::SweepAlongSpline(
 		/*RotationAngleDeg=*/0.0f, /*MiterLimit=*/1.0f,
 		/*Debug=*/nullptr);
 
+	return Result == Mesh;
+}
+
+FString UUnrealBridgeGeometryLibrary::BakeNormalsToTexture(int32 Handle, const FString& NewTexturePath, int32 Resolution)
+{
+#if WITH_EDITOR
+	using namespace BridgeGeometryImpl;
+	UDynamicMesh* Mesh = ResolveHandle(Handle);
+	if (!Mesh)
+	{
+		return FString{};
+	}
+
+	// Bake target needs tangents on the source UVs. ComputeTangents is idempotent
+	// (no-op if tangents already exist; silent no-op if no UV channel — caller's
+	// responsibility to ensure the mesh has UVs via mesh_uv_unwrap or load).
+	{
+		FGeometryScriptTangentsOptions TangentOpts;
+		UGeometryScriptLibrary_MeshNormalsFunctions::ComputeTangents(Mesh, TangentOpts, /*Debug=*/nullptr);
+	}
+
+	FGeometryScriptBakeTargetMeshOptions TargetOpts;        // TargetUVLayer = 0 (default)
+	FGeometryScriptBakeSourceMeshOptions SourceOpts;        // SourceNormalMap = nullptr → use mesh normals
+	FGeometryScriptBakeTextureOptions    TextureOpts;
+	TextureOpts.Resolution      = PixelsToBakeResolution(Resolution);
+	TextureOpts.BitDepth        = EGeometryScriptBakeBitDepth::ChannelBits8;
+	TextureOpts.SamplesPerPixel = EGeometryScriptBakeSamplesPerPixel::Sample1;
+	TextureOpts.FilteringType   = EGeometryScriptBakeFilteringType::BSpline;
+
+	TArray<FGeometryScriptBakeTypeOptions> BakeTypes;
+	BakeTypes.Add(UGeometryScriptLibrary_MeshBakeFunctions::MakeBakeTypeTangentNormal());
+
+	const TArray<UTexture2D*> Baked = UGeometryScriptLibrary_MeshBakeFunctions::BakeTexture(
+		Mesh, FTransform::Identity, TargetOpts,
+		Mesh, FTransform::Identity, SourceOpts,
+		BakeTypes, TextureOpts, /*Debug=*/nullptr);
+
+	if (Baked.Num() == 0 || !Baked[0])
+	{
+		UE_LOG(LogTemp, Warning, TEXT("UnrealBridge|Geometry: BakeNormalsToTexture produced no texture"));
+		return FString{};
+	}
+
+	FGeometryScriptCreateNewTexture2DAssetOptions AssetOpts;
+	EGeometryScriptOutcomePins Outcome = EGeometryScriptOutcomePins::Failure;
+	UTexture2D* Saved = UGeometryScriptLibrary_CreateNewAssetFunctions::CreateNewTexture2DAsset(
+		Baked[0], NewTexturePath, AssetOpts, Outcome, /*Debug=*/nullptr);
+
+	if (Outcome != EGeometryScriptOutcomePins::Success || !Saved)
+	{
+		return FString{};
+	}
+	return Saved->GetPathName();
+#else
+	(void)Handle; (void)NewTexturePath; (void)Resolution;
+	UE_LOG(LogTemp, Warning, TEXT("UnrealBridge|Geometry: BakeNormalsToTexture requires WITH_EDITOR"));
+	return FString{};
+#endif
+}
+
+bool UUnrealBridgeGeometryLibrary::BakeOcclusionToVertexColor(int32 Handle, int32 OcclusionRays)
+{
+	using namespace BridgeGeometryImpl;
+	UDynamicMesh* Mesh = ResolveHandle(Handle);
+	if (!Mesh)
+	{
+		return false;
+	}
+
+	FGeometryScriptBakeTargetMeshOptions TargetOpts;
+	FGeometryScriptBakeSourceMeshOptions SourceOpts;
+	FGeometryScriptBakeVertexOptions     VertexOpts;        // TopologyMode=CreateNew (default)
+
+	FGeometryScriptBakeOutputType Output;
+	Output.OutputMode = EGeometryScriptBakeOutputMode::RGBA;
+	Output.RGBA = UGeometryScriptLibrary_MeshBakeFunctions::MakeBakeTypeAmbientOcclusion(
+		FMath::Max(1, OcclusionRays),
+		/*MaxDistance=*/0.f,
+		/*SpreadAngle=*/180.f,
+		/*BiasAngle=*/15.f);
+
+	UDynamicMesh* Result = UGeometryScriptLibrary_MeshBakeFunctions::BakeVertex(
+		Mesh, FTransform::Identity, TargetOpts,
+		Mesh, FTransform::Identity, SourceOpts,
+		Output, VertexOpts, /*Debug=*/nullptr);
 	return Result == Mesh;
 }
 
