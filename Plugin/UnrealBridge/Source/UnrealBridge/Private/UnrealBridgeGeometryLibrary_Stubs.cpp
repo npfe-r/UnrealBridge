@@ -57,4 +57,28 @@ FBridgeMeshInfo UUnrealBridgeGeometryLibrary::GetMeshInfo(int32 Handle)
 	return FBridgeMeshInfo{};
 }
 
+bool UUnrealBridgeGeometryLibrary::MeshBoolean(int32 HandleA, int32 HandleB, const FString& Op)
+{
+	UE_LOG(LogTemp, Warning, TEXT("UUnrealBridgeGeometryLibrary::MeshBoolean requires UE 5.7+ — call ignored on this engine version"));
+	return bool{};
+}
+
+bool UUnrealBridgeGeometryLibrary::MeshSmooth(int32 Handle, int32 Iterations, float Strength)
+{
+	UE_LOG(LogTemp, Warning, TEXT("UUnrealBridgeGeometryLibrary::MeshSmooth requires UE 5.7+ — call ignored on this engine version"));
+	return bool{};
+}
+
+bool UUnrealBridgeGeometryLibrary::MeshDecimate(int32 Handle, int32 TargetTris)
+{
+	UE_LOG(LogTemp, Warning, TEXT("UUnrealBridgeGeometryLibrary::MeshDecimate requires UE 5.7+ — call ignored on this engine version"));
+	return bool{};
+}
+
+bool UUnrealBridgeGeometryLibrary::RecomputeNormalsAndTangents(int32 Handle, float AngleThresholdDeg)
+{
+	UE_LOG(LogTemp, Warning, TEXT("UUnrealBridgeGeometryLibrary::RecomputeNormalsAndTangents requires UE 5.7+ — call ignored on this engine version"));
+	return bool{};
+}
+
 #endif // UE_VERSION_OLDER_THAN(5, 7, 0)

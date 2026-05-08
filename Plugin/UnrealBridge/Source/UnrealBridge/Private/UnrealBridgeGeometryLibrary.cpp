@@ -18,10 +18,15 @@
 #include "Misc/PackageName.h"
 
 #include "GeometryScript/GeometryScriptTypes.h"
+#include "GeometryScript/GeometryScriptSelectionTypes.h"
 #include "GeometryScript/MeshAssetFunctions.h"
 #include "GeometryScript/MeshQueryFunctions.h"
 #include "GeometryScript/SceneUtilityFunctions.h"
 #include "GeometryScript/CreateNewAssetUtilityFunctions.h"
+#include "GeometryScript/MeshBooleanFunctions.h"
+#include "GeometryScript/MeshDeformFunctions.h"
+#include "GeometryScript/MeshSimplifyFunctions.h"
+#include "GeometryScript/MeshNormalsFunctions.h"
 
 #define LOCTEXT_NAMESPACE "UnrealBridgeGeometry"
 
@@ -88,6 +93,18 @@ namespace BridgeGeometryImpl
 			}
 		}
 		return nullptr;
+	}
+
+	bool ParseBooleanOp(const FString& Op, EGeometryScriptBooleanOperation& Out)
+	{
+		const FString Lower = Op.ToLower();
+		if (Lower == TEXT("union"))                                  { Out = EGeometryScriptBooleanOperation::Union;        return true; }
+		if (Lower == TEXT("intersect") || Lower == TEXT("intersection")) { Out = EGeometryScriptBooleanOperation::Intersection; return true; }
+		if (Lower == TEXT("subtract") || Lower == TEXT("difference"))   { Out = EGeometryScriptBooleanOperation::Subtract;     return true; }
+		UE_LOG(LogTemp, Warning,
+			TEXT("UnrealBridge|Geometry: unknown boolean op '%s' (expected union / intersect / subtract)"),
+			*Op);
+		return false;
 	}
 
 	USceneComponent* FindComponent(AActor* Actor, const FString& ComponentName)
@@ -314,6 +331,105 @@ FBridgeMeshInfo UUnrealBridgeGeometryLibrary::GetMeshInfo(int32 Handle)
 	Info.bHasVertexColors = UGeometryScriptLibrary_MeshQueryFunctions::GetHasVertexColors(Mesh);
 	Info.Bounds          = UGeometryScriptLibrary_MeshQueryFunctions::GetMeshBoundingBox(Mesh);
 	return Info;
+}
+
+bool UUnrealBridgeGeometryLibrary::MeshBoolean(int32 HandleA, int32 HandleB, const FString& Op)
+{
+	using namespace BridgeGeometryImpl;
+	UDynamicMesh* Target = ResolveHandle(HandleA);
+	UDynamicMesh* Tool   = ResolveHandle(HandleB);
+	if (!Target || !Tool)
+	{
+		return false;
+	}
+	EGeometryScriptBooleanOperation Operation;
+	if (!ParseBooleanOp(Op, Operation))
+	{
+		return false;
+	}
+
+	FGeometryScriptMeshBooleanOptions Options;  // bFillHoles=true, bSimplifyOutput=true (engine defaults)
+	UDynamicMesh* Result = UGeometryScriptLibrary_MeshBooleanFunctions::ApplyMeshBoolean(
+		Target, FTransform::Identity,
+		Tool,   FTransform::Identity,
+		Operation, Options, /*Debug=*/nullptr);
+
+	// ApplyMeshBoolean returns its TargetMesh on success; null/empty result is the failure marker.
+	return Result == Target && Target->GetTriangleCount() > 0;
+}
+
+bool UUnrealBridgeGeometryLibrary::MeshSmooth(int32 Handle, int32 Iterations, float Strength)
+{
+	using namespace BridgeGeometryImpl;
+	UDynamicMesh* Mesh = ResolveHandle(Handle);
+	if (!Mesh)
+	{
+		return false;
+	}
+	FGeometryScriptIterativeMeshSmoothingOptions Options;
+	Options.NumIterations = FMath::Max(1, Iterations);
+	Options.Alpha         = FMath::Clamp(Strength, 0.0f, 1.0f);
+
+	FGeometryScriptMeshSelection EmptySelection;  // empty = whole mesh
+	UDynamicMesh* Result = UGeometryScriptLibrary_MeshDeformFunctions::ApplyIterativeSmoothingToMesh(
+		Mesh, EmptySelection, Options, /*Debug=*/nullptr);
+
+	return Result == Mesh;
+}
+
+bool UUnrealBridgeGeometryLibrary::MeshDecimate(int32 Handle, int32 TargetTris)
+{
+	using namespace BridgeGeometryImpl;
+	UDynamicMesh* Mesh = ResolveHandle(Handle);
+	if (!Mesh)
+	{
+		return false;
+	}
+	const int32 ClampedTarget = FMath::Max(4, TargetTris);
+	FGeometryScriptSimplifyMeshOptions Options;  // AttributeAware default
+	UDynamicMesh* Result = UGeometryScriptLibrary_MeshSimplifyFunctions::ApplySimplifyToTriangleCount(
+		Mesh, ClampedTarget, Options, /*Debug=*/nullptr);
+
+	return Result == Mesh;
+}
+
+bool UUnrealBridgeGeometryLibrary::RecomputeNormalsAndTangents(int32 Handle, float AngleThresholdDeg)
+{
+	using namespace BridgeGeometryImpl;
+	UDynamicMesh* Mesh = ResolveHandle(Handle);
+	if (!Mesh)
+	{
+		return false;
+	}
+
+	FGeometryScriptCalculateNormalsOptions CalcOpts;  // bAngleWeighted=true, bAreaWeighted=true (defaults)
+	UDynamicMesh* Result = nullptr;
+
+	if (AngleThresholdDeg > 0.0f)
+	{
+		FGeometryScriptSplitNormalsOptions SplitOpts;
+		SplitOpts.bSplitByOpeningAngle = true;
+		SplitOpts.OpeningAngleDeg      = AngleThresholdDeg;
+		// Other defaults: bSplitByFaceGroup=true (cheap, harmless when no groups exist).
+		Result = UGeometryScriptLibrary_MeshNormalsFunctions::ComputeSplitNormals(
+			Mesh, SplitOpts, CalcOpts, /*Debug=*/nullptr);
+	}
+	else
+	{
+		Result = UGeometryScriptLibrary_MeshNormalsFunctions::RecomputeNormals(
+			Mesh, CalcOpts, /*bDeferChangeNotifications=*/false, /*Debug=*/nullptr);
+	}
+
+	if (Result != Mesh)
+	{
+		return false;
+	}
+
+	// Tangents always second pass — RecomputeNormals doesn't touch the tangent overlay.
+	FGeometryScriptTangentsOptions TangentOpts;  // defaults
+	UDynamicMesh* TangResult = UGeometryScriptLibrary_MeshNormalsFunctions::ComputeTangents(
+		Mesh, TangentOpts, /*Debug=*/nullptr);
+	return TangResult == Mesh;
 }
 
 #undef LOCTEXT_NAMESPACE

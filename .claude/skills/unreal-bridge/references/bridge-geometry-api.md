@@ -13,13 +13,19 @@ Hard contract:
 
 ## What's shipped
 
-**Phase 2 — M4 (this batch, 8 ops + 1 USTRUCT)**:
+**Phase 2 — M4 (8 ops + 1 USTRUCT)**:
 - handle pool: `create_dynamic_mesh`, `release_dynamic_mesh`, `list_dynamic_mesh_handles`
 - ingest: `load_mesh_from_static_mesh`, `load_mesh_from_component`
 - save: `save_mesh_to_new_static_mesh`, `save_mesh_to_existing_static_mesh`
 - query: `get_mesh_info` → `FBridgeMeshInfo`
 
-Phase 3 (boolean / smooth / decimate / recompute_normals) and the rest of M5 / M6 land in subsequent commits — see roadmap §4 M5 / M6.
+**Phase 3 — M5/M6 P2 priority (4 ops)**:
+- `mesh_boolean` (M5-2)
+- `mesh_smooth` (M5-4)
+- `mesh_decimate` (M5-5)
+- `recompute_normals_and_tangents` (M6-3)
+
+Remaining M5 (primitives M5-1, displace M5-3, voxel-merge M5-6, UV unwrap M5-7, transform M5-8, triangulate M5-9, selection / extrude / sweep M5-10..12) and M6 bake (M6-1 BakeNormalsToTexture, M6-2 BakeOcclusionToVertexColor) land in a future phase — see roadmap §4 M5 / M6.
 
 ---
 
@@ -183,6 +189,84 @@ Static facts about the mesh held by `handle`. See FBridgeMeshInfo above.
 Returns the all-zero/empty struct when handle invalid (use `list_dynamic_mesh_handles()` to verify before calling).
 
 **Cost** — O(NumVertices + NumTriangles) for the queries that aren't cached. ~1ms per 100k tris.
+
+---
+
+---
+
+## mesh_boolean(handle_a, handle_b, op) -> bool
+
+Boolean two meshes in-place on `handle_a`. `handle_b` is the tool mesh and is **not** modified. Wraps `MeshBooleanFunctions::ApplyMeshBoolean` with default options (fill holes, simplify output) and identity transforms on both sides.
+
+| Param | Type | Notes |
+|---|---|---|
+| `handle_a` | int | Target (modified in place). |
+| `handle_b` | int | Tool mesh (read-only). |
+| `op` | str | `"union"` / `"intersect"` / `"intersection"` / `"subtract"` / `"difference"`. Case-insensitive. |
+
+Returns: true on Success.
+
+**Cost** — O(NA × NB) worst case for the BSP intersection. Dense pairs (>50k×50k tri) can block the GameThread for seconds; chain across separate execs.
+
+**Pitfalls**
+- Both meshes use identity transform — apply `mesh_transform` (not yet shipped) ahead of time if they need to be at world-space offsets to overlap meaningfully.
+- After boolean, normals at the seam are smooth-shaded by default. Run `recompute_normals_and_tangents(handle, 45.0)` to add hard edges.
+- Unknown `op` strings fail loudly: returns false + `LogTemp` warning.
+
+---
+
+## mesh_smooth(handle, iterations, strength) -> bool
+
+Iterative Laplacian smoothing in-place over the whole mesh. Wraps `MeshDeformFunctions::ApplyIterativeSmoothingToMesh`.
+
+| Param | Type | Notes |
+|---|---|---|
+| `handle` | int | Target. |
+| `iterations` | int | ≥1. Engine default is 10; practical range 2-20 (more = smoother + more shrinkage). |
+| `strength` | float | Per-iteration weight in [0, 1]. Engine default is 0.2. |
+
+Returns: true on Success.
+
+**Pitfalls**
+- Heavy smoothing collapses small features. Run `mesh_decimate` first if you only want to remove fine noise without losing volumes.
+- Doesn't preserve UV seams or hard edges — for that, recompute normals afterward.
+
+---
+
+## mesh_decimate(handle, target_tris) -> bool
+
+Reduce mesh down to a target triangle count. Wraps `MeshSimplifyFunctions::ApplySimplifyToTriangleCount` with default `AttributeAware` options.
+
+| Param | Type | Notes |
+|---|---|---|
+| `handle` | int | Target. |
+| `target_tris` | int | Desired final count (≥4). Simplifier may not hit exactly — typically within ±5%. |
+
+Returns: true on Success.
+
+**Pitfalls**
+- AttributeAware mode preserves UV / normals / vertex color attributes at the cost of fewer reachable simplification states. Pure-geometry decimation needs a different `Method` (not exposed in this phase).
+- Below ~50 triangles the simplifier may refuse to go further — meshes that small are degenerate for most rendering pipelines.
+- "Editor" simplifier variant (`ApplyEditorSimplifyToTriangleCount`) is higher quality but only available in editor; not exposed here. File a request if needed.
+
+---
+
+## recompute_normals_and_tangents(handle, angle_threshold_deg) -> bool
+
+Recompute normals (with optional hard-edge splitting) + tangents in-place. Almost always required after boolean / decimate / sweep.
+
+| Param | Type | Notes |
+|---|---|---|
+| `handle` | int | Target. |
+| `angle_threshold_deg` | float | Opening angle in degrees. >0 → split normals at edges with greater opening angle (hard edges); ≤0 → plain `RecomputeNormals` (all soft). Common: 30-60 organic, 45 hard-surface. |
+
+Returns: true on Success.
+
+Internally always runs `ComputeTangents` after the normal step — RecomputeNormals doesn't touch the tangents overlay.
+
+**Pitfalls**
+- Without this after a boolean, the seam between unioned shapes will look smooth-shaded and "blobby". A 30° threshold gives natural-looking hard edges for most mechanical shapes.
+- ComputeTangents requires UVs — if the mesh has 0 UV layers, tangent computation no-ops silently (still returns true on the normal step).
 
 ---
 

@@ -175,4 +175,74 @@ public:
 	/** Static facts about the mesh held by Handle. Returns an all-zero struct when handle invalid. */
 	UFUNCTION(BlueprintCallable, Category = "UnrealBridge|Geometry")
 	static FBridgeMeshInfo GetMeshInfo(int32 Handle);
+
+	// ─── M5/M6 — P2 priority subset (boolean / smooth / decimate / recompute_normals) ─
+
+	/**
+	 * Boolean two meshes in-place on `HandleA`. `HandleB` is the tool mesh and is
+	 * untouched. Wraps `MeshBooleanFunctions::ApplyMeshBoolean` with default options
+	 * (fill holes, simplify output, no weld). Both transforms are identity — apply
+	 * `mesh_transform` (Phase 3+) ahead of time if the meshes need world-space
+	 * placement to overlap correctly.
+	 *
+	 * @param HandleA Target mesh (modified in place).
+	 * @param HandleB Tool mesh (read-only).
+	 * @param Op One of "union" / "intersect" / "intersection" / "subtract"
+	 *           (case-insensitive). Unknown values fail loudly + return false.
+	 * @return true on Success outcome.
+	 *
+	 * Cost: O(NA × NB) worst case for the BSP tree intersection. Dense meshes
+	 * (>50k tri × 50k tri) can block the GameThread for several seconds — split
+	 * into separate exec calls for chained ops (per feedback_bridge_exec_holds_gamethread).
+	 */
+	UFUNCTION(BlueprintCallable, Category = "UnrealBridge|Geometry")
+	static bool MeshBoolean(int32 HandleA, int32 HandleB, const FString& Op);
+
+	/**
+	 * Iterative Laplacian smoothing in-place. Wraps `MeshDeformFunctions::ApplyIterativeSmoothingToMesh`
+	 * with empty selection (whole mesh) and `Alpha` interpreted as `Strength`
+	 * (clamped to [0, 1]).
+	 *
+	 * @param Handle Target mesh.
+	 * @param Iterations Smoothing passes (≥1). Higher = smoother but more shrinkage.
+	 *                   Engine default is 10; common practical range 2-20.
+	 * @param Strength Per-iteration weight in [0, 1]. 0 = no movement; 1 = full
+	 *                 Laplacian step. Engine default is 0.2.
+	 * @return true on Success outcome.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "UnrealBridge|Geometry")
+	static bool MeshSmooth(int32 Handle, int32 Iterations, float Strength);
+
+	/**
+	 * Reduce mesh down to a target triangle count. Wraps
+	 * `MeshSimplifyFunctions::ApplySimplifyToTriangleCount` with default
+	 * AttributeAware options.
+	 *
+	 * @param Handle Target mesh.
+	 * @param TargetTris Desired final triangle count (≥4). The simplifier may
+	 *                   not hit it exactly — typically lands within ±5%.
+	 * @return true on Success outcome.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "UnrealBridge|Geometry")
+	static bool MeshDecimate(int32 Handle, int32 TargetTris);
+
+	/**
+	 * Recompute normals and tangents in-place. When `AngleThresholdDeg > 0`,
+	 * applies hard-edge splitting first (`ComputeSplitNormals` with the given
+	 * opening angle) — this is what you almost always want after a boolean,
+	 * decimate, or sweep, since those operations leave smooth-shaded seams
+	 * everywhere. With `AngleThresholdDeg ≤ 0`, falls back to plain
+	 * `RecomputeNormals` (no hard edges).
+	 *
+	 * Tangents are always recomputed via `ComputeTangents` after the normal step.
+	 *
+	 * @param Handle Target mesh.
+	 * @param AngleThresholdDeg Opening-angle threshold (degrees) for hard-edge
+	 *                          detection. Common values: 30-60 for organic, 45
+	 *                          for hard-surface. Pass 0 or negative to skip
+	 *                          split-normals.
+	 * @return true on Success outcome.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "UnrealBridge|Geometry")
+	static bool RecomputeNormalsAndTangents(int32 Handle, float AngleThresholdDeg);
 };
