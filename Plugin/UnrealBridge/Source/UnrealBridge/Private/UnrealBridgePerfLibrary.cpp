@@ -3012,6 +3012,7 @@ TArray<FBridgeTraceChannelInfo> UUnrealBridgePerfLibrary::ListTraceChannels()
 #include "TraceServices/Model/LoadTimeProfiler.h"
 #include "TraceServices/Model/Counters.h"
 #include "TraceServices/Model/AllocationsProvider.h"
+#include "TraceServices/Model/NetProfiler.h"
 #include "TraceServices/Containers/Tables.h"
 #include "ProfilingDebugging/MiscTrace.h"  // ETraceFrameType
 
@@ -3620,6 +3621,140 @@ FBridgePerfAllocSummary UUnrealBridgePerfLibrary::ParseAllocTraceToSummary(const
 			T.FullPath = FString(Full);
 		}
 	}
+
+	Out.bSuccess = true;
+	return Out;
+}
+
+// ─── M6-2 ParseNetTraceToSummary ─────────────────────────────────
+
+FBridgePerfNetSummary UUnrealBridgePerfLibrary::ParseNetTraceToSummary(const FString& UtracePath)
+{
+	FBridgePerfNetSummary Out;
+	Out.TracePath = UtracePath;
+
+	IFileManager& FileMgr = IFileManager::Get();
+	if (!FileMgr.FileExists(*UtracePath))
+	{
+		Out.Error = FString::Printf(TEXT("trace file not found: %s"), *UtracePath);
+		return Out;
+	}
+	Out.FileSizeBytes = FileMgr.FileSize(*UtracePath);
+	if (Out.FileSizeBytes <= 0)
+	{
+		Out.Error = FString::Printf(TEXT("trace file empty or unreadable: %s"), *UtracePath);
+		return Out;
+	}
+
+	ITraceServicesModule* TSModule = FModuleManager::LoadModulePtr<ITraceServicesModule>("TraceServices");
+	if (!TSModule)
+	{
+		Out.Error = TEXT("TraceServices module load failed");
+		return Out;
+	}
+	TSharedPtr<TraceServices::IAnalysisService> AnalysisService = TSModule->GetAnalysisService();
+	if (!AnalysisService)
+	{
+		Out.Error = TEXT("TraceServices::IAnalysisService unavailable");
+		return Out;
+	}
+	TSharedPtr<const TraceServices::IAnalysisSession> Session = AnalysisService->Analyze(*UtracePath);
+	if (!Session.IsValid())
+	{
+		Out.Error = TEXT("Analyze() returned null session — trace probably malformed");
+		return Out;
+	}
+	TraceServices::FAnalysisSessionReadScope ReadScope(*Session);
+
+	const TraceServices::INetProfilerProvider* NetProv = TraceServices::ReadNetProfilerProvider(*Session);
+	if (!NetProv)
+	{
+		Out.Error = TEXT("NetProfilerProvider unavailable — engine module not loaded");
+		Out.bSuccess = true;
+		return Out;
+	}
+
+	Out.NetTraceVersion = static_cast<int32>(NetProv->GetNetTraceVersion());
+	if (Out.NetTraceVersion == 0)
+	{
+		// Trace lacks the `net` channel — provider is loaded but empty.
+		Out.bSuccess = true;
+		return Out;
+	}
+
+	const uint32 InstCount = NetProv->GetGameInstanceCount();
+	if (InstCount == 0)
+	{
+		Out.bSuccess = true;
+		return Out;
+	}
+
+	Out.bHasEvents = true;
+	Out.GameInstances.Reserve(InstCount);
+
+	NetProv->ReadGameInstances(
+		[NetProv, &Out](const TraceServices::FNetProfilerGameInstance& Instance)
+		{
+			FBridgePerfNetGameInstance Row;
+			Row.InstanceName             = Instance.InstanceName ? FString(Instance.InstanceName) : FString();
+			Row.bIsServer                = Instance.bIsServer;
+			Row.bIsUsingIrisReplication  = Instance.bIsUsingIrisReplication;
+			Row.ObjectCount              = static_cast<int32>(NetProv->GetObjectCount(Instance.GameInstanceIndex));
+
+			const uint32 ConnCount = NetProv->GetConnectionCount(Instance.GameInstanceIndex);
+			Row.Connections.Reserve(ConnCount);
+
+			NetProv->ReadConnections(Instance.GameInstanceIndex,
+				[NetProv, &Row](const TraceServices::FNetProfilerConnection& Conn)
+				{
+					FBridgePerfNetConnection ConnRow;
+					ConnRow.Name           = Conn.Name          ? FString(Conn.Name)          : FString();
+					ConnRow.AddressString  = Conn.AddressString ? FString(Conn.AddressString) : FString();
+					ConnRow.ConnectionId   = static_cast<int32>(Conn.ConnectionId);
+
+					// Outgoing direction
+					{
+						const uint32 PktCount = NetProv->GetPacketCount(Conn.ConnectionIndex,
+							TraceServices::ENetProfilerConnectionMode::Outgoing);
+						ConnRow.OutgoingPacketCount = PktCount;
+						uint64 ByteSum = 0;
+						if (PktCount > 0)
+						{
+							NetProv->EnumeratePackets(Conn.ConnectionIndex,
+								TraceServices::ENetProfilerConnectionMode::Outgoing,
+								0, PktCount - 1,
+								[&ByteSum](const TraceServices::FNetProfilerPacket& P)
+								{
+									ByteSum += P.TotalPacketSizeInBytes;
+								});
+						}
+						ConnRow.OutgoingBytes = static_cast<int64>(ByteSum);
+					}
+
+					// Incoming direction
+					{
+						const uint32 PktCount = NetProv->GetPacketCount(Conn.ConnectionIndex,
+							TraceServices::ENetProfilerConnectionMode::Incoming);
+						ConnRow.IncomingPacketCount = PktCount;
+						uint64 ByteSum = 0;
+						if (PktCount > 0)
+						{
+							NetProv->EnumeratePackets(Conn.ConnectionIndex,
+								TraceServices::ENetProfilerConnectionMode::Incoming,
+								0, PktCount - 1,
+								[&ByteSum](const TraceServices::FNetProfilerPacket& P)
+								{
+									ByteSum += P.TotalPacketSizeInBytes;
+								});
+						}
+						ConnRow.IncomingBytes = static_cast<int64>(ByteSum);
+					}
+
+					Row.Connections.Add(MoveTemp(ConnRow));
+				});
+
+			Out.GameInstances.Add(MoveTemp(Row));
+		});
 
 	Out.bSuccess = true;
 	return Out;

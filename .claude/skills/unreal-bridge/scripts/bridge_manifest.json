@@ -31,7 +31,7 @@
       "TIMER"
     ]
   },
-  "generated_at": "2026-05-08T16:39:29+00:00",
+  "generated_at": "2026-05-08T16:42:48+00:00",
   "libraries": {
     "UnrealBridgeAnimLibrary": {
       "functions": {
@@ -17638,6 +17638,18 @@
           ],
           "returns": "BridgePerfAllocSummary"
         },
+        "parse_net_trace_to_summary": {
+          "doc": "X.parse_net_trace_to_summary(utrace_path) -> BridgePerfNetSummary",
+          "params": [
+            {
+              "default": null,
+              "has_default": false,
+              "name": "utrace_path",
+              "type": ""
+            }
+          ],
+          "returns": "BridgePerfNetSummary"
+        },
         "parse_trace_to_summary": {
           "doc": "X.parse_trace_to_summary(utrace_path, top_n=20, top_n_per_thread=10, top_n_counters=100) -> BridgePerfTraceSummary",
           "params": [
@@ -21089,6 +21101,31 @@
       "package_name",
       "serialized_size_bytes",
       "total_loading_ms"
+    ],
+    "BridgePerfNetConnection": [
+      "address_string",
+      "connection_id",
+      "incoming_bytes",
+      "incoming_packet_count",
+      "name",
+      "outgoing_bytes",
+      "outgoing_packet_count"
+    ],
+    "BridgePerfNetGameInstance": [
+      "connections",
+      "instance_name",
+      "is_server",
+      "is_using_iris_replication",
+      "object_count"
+    ],
+    "BridgePerfNetSummary": [
+      "error",
+      "file_size_bytes",
+      "game_instances",
+      "has_events",
+      "net_trace_version",
+      "success",
+      "trace_path"
     ],
     "BridgePerfSamplingState": [
       "active",

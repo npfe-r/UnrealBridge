@@ -848,6 +848,89 @@ struct FBridgePerfTraceSummary
 	FString Error;
 };
 
+/** One connection's per-direction traffic totals (M6-2). */
+USTRUCT(BlueprintType)
+struct FBridgePerfNetConnection
+{
+	GENERATED_BODY()
+
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Perf")
+	FString Name;
+
+	/** Connection address string (typically `IP:port` or local-loopback marker). */
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Perf")
+	FString AddressString;
+
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Perf")
+	int32 ConnectionId = 0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Perf")
+	int64 IncomingPacketCount = 0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Perf")
+	int64 OutgoingPacketCount = 0;
+
+	/** Sum of `TotalPacketSizeInBytes` over every incoming packet. */
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Perf")
+	int64 IncomingBytes = 0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Perf")
+	int64 OutgoingBytes = 0;
+};
+
+/** One game-instance summary in a net trace (M6-2). */
+USTRUCT(BlueprintType)
+struct FBridgePerfNetGameInstance
+{
+	GENERATED_BODY()
+
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Perf")
+	FString InstanceName;
+
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Perf")
+	bool bIsServer = false;
+
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Perf")
+	bool bIsUsingIrisReplication = false;
+
+	/** Number of replicated objects observed on this instance. */
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Perf")
+	int32 ObjectCount = 0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Perf")
+	TArray<FBridgePerfNetConnection> Connections;
+};
+
+/** Result of `parse_net_trace_to_summary` (M6-2). */
+USTRUCT(BlueprintType)
+struct FBridgePerfNetSummary
+{
+	GENERATED_BODY()
+
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Perf")
+	FString TracePath;
+
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Perf")
+	int64 FileSizeBytes = 0;
+
+	/** NetTrace stream version, or 0 when the trace had no network data. */
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Perf")
+	int32 NetTraceVersion = 0;
+
+	/** True when at least one game instance + non-zero NetTrace version. */
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Perf")
+	bool bHasEvents = false;
+
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Perf")
+	TArray<FBridgePerfNetGameInstance> GameInstances;
+
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Perf")
+	bool bSuccess = false;
+
+	UPROPERTY(BlueprintReadOnly, Category = "UnrealBridge|Perf")
+	FString Error;
+};
+
 /** One LLM tag from the alloc trace (M6-1). */
 USTRUCT(BlueprintType)
 struct FBridgePerfAllocTag
@@ -1503,4 +1586,26 @@ public:
 	 */
 	UFUNCTION(BlueprintCallable, Category = "UnrealBridge|Perf")
 	static FBridgePerfAllocSummary ParseAllocTraceToSummary(const FString& UtracePath);
+
+	/**
+	 * Parse a `.utrace` file's network profiler data into a structured summary
+	 * (M6-2). Trace must contain the `net` channel; without it the
+	 * NetProfilerProvider exists but reports `NetTraceVersion=0` and the call
+	 * returns `bHasEvents=false` with empty game-instance list.
+	 *
+	 * Output: per game-instance breakdown (server / client, Iris flag, object
+	 * count, list of connections) + per-connection packet + byte totals split
+	 * by direction (incoming / outgoing). Bytes come from
+	 * `FNetProfilerPacket::TotalPacketSizeInBytes` summed across every packet.
+	 *
+	 * Per-actor replication breakdown + most-expensive-RPC ranking is deferred
+	 * (would require walking every packet content event and resolving each
+	 * `ObjectInstanceIndex` against the FNetProfilerObjectInstance table —
+	 * larger commit). The current MVP is enough to attribute "client X using
+	 * Y MB/s" and detect runaway connections.
+	 *
+	 * @param UtracePath  Absolute path to a `.utrace` file. Must exist.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "UnrealBridge|Perf")
+	static FBridgePerfNetSummary ParseNetTraceToSummary(const FString& UtracePath);
 };

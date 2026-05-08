@@ -161,6 +161,42 @@ for row in s.u_objects.top_classes[:5]:
 
 ---
 
+## parse_net_trace_to_summary(utrace_path) -> FBridgePerfNetSummary
+
+**(M6-2)** Parse a `.utrace` file's network profiler data. Trace must contain the `net` channel; without it `net_trace_version` is 0 and `has_events` is False.
+
+| Field | Type | Notes |
+|---|---|---|
+| `trace_path` / `file_size_bytes` | str / int64 | Echoed back. |
+| `net_trace_version` | int32 | NetTrace stream version. 0 = no net data in this trace. |
+| `has_events` | bool | True when version > 0 + ≥ 1 game instance. |
+| `game_instances` | array of `FBridgePerfNetGameInstance` | One row per game instance (server / client / dedicated). |
+| `success` / `error` | bool / str | |
+
+### `FBridgePerfNetGameInstance`
+
+| Field | Type | Notes |
+|---|---|---|
+| `instance_name` | str | Engine-supplied instance label. |
+| `is_server` | bool | True for the listen/dedicated server side. |
+| `is_using_iris_replication` | bool | Set when the instance routes through the Iris replication system. |
+| `object_count` | int32 | Number of replicated objects observed. |
+| `connections` | array of `FBridgePerfNetConnection` | One row per connection on the instance. |
+
+### `FBridgePerfNetConnection`
+
+| Field | Type | Notes |
+|---|---|---|
+| `name` | str | Connection name. |
+| `address_string` | str | Address (IP:port for live connections). |
+| `connection_id` | int32 | Engine-internal id. |
+| `incoming_packet_count` / `outgoing_packet_count` | int64 | Packet counts per direction. |
+| `incoming_bytes` / `outgoing_bytes` | int64 | Sum of `TotalPacketSizeInBytes` per direction. |
+
+**MVP scope**: per-connection traffic totals. Per-actor replication breakdown + most-expensive-RPC ranking is deferred — would require walking every packet content event and resolving `ObjectInstanceIndex` against the FNetProfilerObjectInstance table.
+
+---
+
 ## parse_alloc_trace_to_summary(utrace_path) -> FBridgePerfAllocSummary
 
 **(M6-1)** Parse a `.utrace` file's allocation provider into a structured summary. Trace **must** contain the `memalloc` channel **AND** be captured from engine startup (`-trace=memalloc,frame,cpu` on the editor command line) — `Trace.Start memalloc=on` at runtime cannot retroactively install the malloc hooks needed to record events.

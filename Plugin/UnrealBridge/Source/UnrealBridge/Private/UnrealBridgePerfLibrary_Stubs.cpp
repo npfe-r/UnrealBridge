@@ -37,4 +37,10 @@ FBridgePerfAllocSummary UUnrealBridgePerfLibrary::ParseAllocTraceToSummary(const
 	return FBridgePerfAllocSummary{};
 }
 
+FBridgePerfNetSummary UUnrealBridgePerfLibrary::ParseNetTraceToSummary(const FString& UtracePath)
+{
+	UE_LOG(LogTemp, Warning, TEXT("UUnrealBridgePerfLibrary::ParseNetTraceToSummary requires UE 5.7+ — call ignored on this engine version"));
+	return FBridgePerfNetSummary{};
+}
+
 #endif // UE_VERSION_OLDER_THAN(5, 7, 0)
