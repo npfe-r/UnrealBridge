@@ -20,26 +20,52 @@ Last resort if multicast is blocked (corp VPN, virtual NIC): `--endpoint=127.0.0
 
 ## Waiting for the editor to become ready (post-launch / post-relaunch)
 
-After launching/relaunching the editor, run this **inside `Monitor`** (each
-echo becomes a progress event) or **`Bash` with `run_in_background: true`**
-(one completion event). Don't hand-roll a `for/sleep` countdown in foreground
-`Bash` — the harness blocks long leading sleeps and you'll miss readiness.
+After launching/relaunching the editor, poll readiness with **`Monitor`**
+(streams progress events, recommended) or **`Bash` with `run_in_background:
+true`** (one completion event). Don't write a foreground `for/sleep`
+countdown — the harness blocks long leading sleeps and you'll miss readiness.
+
+Paste this verbatim as the `command` for either tool:
 
 ```bash
 end=$(( $(date +%s) + 300 ))
+i=0
 until python .claude/skills/unreal-bridge/scripts/bridge.py --json --timeout 3 ping 2>/dev/null | grep -q '"ready": *true'; do
   now=$(date +%s)
-  [ "$now" -ge "$end" ] && { echo "[wait] TIMEOUT"; exit 1; }
-  echo "[wait] not ready ($((end - now))s left)"
-  sleep 5
+  [ "$now" -ge "$end" ] && { echo "[wait] TIMEOUT after 300s"; exit 1; }
+  i=$((i + 1))
+  [ $((i % 3)) -eq 0 ] && echo "[wait] still booting ($((end - now))s left)"
+  sleep 10
 done
 echo "[wait] READY"
 ```
 
-Non-obvious bits: must grep `"ready": *true` (TCP-up ≠ MainFrame-ready —
-`success:true, ready:false` rejects every `exec`); ping FIRST then sleep (no
-leading sleep); add `--project=<name>` if >1 editors may run. Skip this loop
-when invoking `rebuild_relaunch.py` — it polls internally.
+Then call one of:
+
+```
+Monitor(description="UE editor ready-poll", command=<block above>,
+        timeout_ms=360000, persistent=false)
+
+Bash(description="Wait for UE editor ready", command=<block above>,
+     run_in_background=true, timeout=360000)
+```
+
+**Locks (don't change without reading)**:
+
+- Grep `"ready": *true` — TCP-up ≠ MainFrame-ready. `success:true, ready:false`
+  means `exec` calls will be rejected; ping success alone is not enough.
+- Ping FIRST then sleep — no leading sleep (harness blocks long ones).
+- `i % 3` echo gate — caps notifications at ~10 over 5 min so Monitor doesn't
+  trip its event-flood auto-stop.
+- `end` deadline must stay **below** the tool `timeout_ms`/`timeout` so you
+  get `[wait] TIMEOUT` rather than a silent harness kill.
+- Path is relative to repo root; `${CLAUDE_SKILL_DIR}` is **not** reliably set
+  in Monitor/Bash subshells — don't substitute it here.
+- After the loop returns, do **one foreground** `bridge.py ping` before real
+  work — bg success is past tense.
+- Multi-editor host: append `--project=<name>` to the ping inside the loop.
+- Skip this entirely when invoking `rebuild_relaunch.py` — it polls
+  internally and prints `[rebuild] bridge is ready.` on success.
 
 ## Bridge CLI
 
