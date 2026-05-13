@@ -88,6 +88,39 @@ Last verified versions:
 - UE 5.7 (point release: 5.7.1)
 - UE 5.8 (point release: 5.8.0, source build) — requires `UnrealBuildTool_BuildConfiguration__bAllowUBAExecutor=false` env var (configured per-engine via `tools/engines.local.json`'s `env` block) on engine snapshots that lack the `UbaDetours.dll` content fetched by Setup.bat. UAT detours-injects `UbaDetours.dll` into cl.exe; the env var disables UBA and falls back to the local ParallelExecutor
 
+## Toolchain note: 5.3 / 5.4 vs. MSVC ≥ 14.44
+
+5.3 / 5.4 engine source contains an unguarded `#elif __has_feature(...)` in
+`Engine/Source/Runtime/Core/Public/Experimental/ConcurrentLinearAllocator.h`
+(line 31). MSVC 14.44+ rejects it with `C4668: '__has_feature' is not
+defined as a preprocessor macro` followed by `C4067`. This is an
+**engine-side** issue (fixed in 5.5+ which guards with
+`#elif defined(__has_feature) / #if __has_feature(...)`), unrelated to
+the plugin.
+
+UnrealBridge code itself compiles cleanly against 5.3 / 5.4 — the
+break is in `SharedPCH.UnrealEd.Cpp20.cpp`, an engine TU. Plugin
+`Build.cs` settings don't reach into engine PCH compilation, and UBT
+5.3 / 5.4 don't expose a user-configurable `AdditionalArguments` knob
+for cl.exe flags.
+
+**The project does not patch the engine.** If you're contributing on a
+machine with MSVC ≥ 14.44 and need to verify 5.3 / 5.4 locally, you
+have two options — both **outside** the repo:
+
+1. Install an older MSVC (≤ 14.40, i.e. VS 2022 17.10) side-by-side
+   via the Visual Studio Installer; pin UE 5.3 / 5.4 to it via
+   `WindowsPlatform.CompilerVersion` in
+   `%APPDATA%/Unreal Engine/UnrealBuildTool/BuildConfiguration.xml`.
+2. Apply the 5.7 fix to your local engine install manually (one file,
+   one `#elif` replacement). **Don't commit this to UnrealBridge**, and
+   re-apply if the Launcher re-verifies.
+
+If neither option is convenient, disable 5.3 / 5.4 in your local
+`tools/engines.local.json` (gitignored) so build_matrix skips them —
+plugin code is still version-compatible, it just can't be verified
+against those engines on your toolchain.
+
 **5.2 is known-broken and unsupported.** The matrix was exercised against
 it once (2026-05-06) and surfaced API drifts in PerfLibrary
 (`RHIGlobals.h` is 5.3+), CurveLibrary (`RCTM_SmartAuto` enum value,
