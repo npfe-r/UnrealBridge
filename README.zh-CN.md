@@ -263,11 +263,14 @@ UnrealBridge/
 
 ## 系统要求
 
-- **Unreal Engine 5.3+**，需启用 `PythonScriptPlugin` 与 `GameplayAbilities`（均为引擎自带）。`tools/build_matrix.py` 已对 5.3.2 / 5.4.4 / 5.5.4 / 5.6.1 / 5.7.1 验证 BuildPlugin 通过；部分库（Chooser / PoseSearch / Material / Navigation 及少量独立 UFUNCTION）需要 5.7+，5.3 上有少量 inline shim，详见 [docs/version-compatibility.md](docs/version-compatibility.md)。UE 5.2 及更早版本不支持。
-- **Windows 10/11** —— 插件本身可移植，但辅助脚本里的路径按 Windows 风格写死
-- **Python 3.9+**，已加入 PATH
-- **Visual Studio 2022** + UE 工作负载 —— 用于编译插件
-- **Claude Code CLI** —— 可选，只有使用自带 skill 时才需要
+- **Unreal Engine 5.3+**,需启用 `PythonScriptPlugin` 与 `GameplayAbilities`(均为引擎自带)。`tools/build_matrix.py` 已对 5.3.2 / 5.4.4 / 5.5.4 / 5.6.1 / 5.7.1 / 5.8.0 验证 BuildPlugin 通过;部分库(Chooser / PoseSearch / Material / Navigation 及少量独立 UFUNCTION)需要 5.7+,5.3 与 5.8 各有少量 inline shim,详见 [docs/version-compatibility.md](docs/version-compatibility.md)。UE 5.2 及更早版本不支持。
+- **Windows 10/11** —— 插件本身可移植,但辅助脚本里的路径按 Windows 风格写死
+- **Python 3.9+**,已加入 PATH
+- **Visual Studio 2022** + UE 工作负载 —— 用于编译插件。**Toolchain 注意事项:**
+  - **5.5 / 5.6 / 5.7 / 5.8** 在当前 MSVC 下能编(已在 **14.44.35207** / VS 17.14 上验证)。
+  - **5.3 / 5.4** 需要 `_MSC_VER ≤ 1939` 的 MSVC(已在 **14.38.33130** / VS 17.8 上验证)。新 MSVC 在引擎自身的 `ConcurrentLinearAllocator.h` 触发 `C4668: '__has_feature' 未定义`,被 5.3 / 5.4 的 UBT 用 `/we4668` 升成硬错误;5.5+ 把 macro 用 `defined()` 包了一层并去掉了 `/we4668`。如果机器上两套工具链都装了,想验 5.3 / 5.4:在 `%APPDATA%\Unreal Engine\UnrealBuildTool\BuildConfiguration.xml` 把 `<CompilerVersion>` 临时改成 `14.38.33130`,跑完再改回去。
+  - **5.8 源码自编引擎**(不是 Launcher 装的)如果缺 `Setup.bat` 通常下发的 `UbaDetours.dll`,需要关 UBA。在 `engines.local.json` 对应引擎条目里加 `"env": { "UnrealBuildTool_BuildConfiguration__bAllowUBAExecutor": "false" }`,UBT 会回落到本地 ParallelExecutor。
+- **Claude Code CLI** —— 可选,只有使用自带 skill 时才需要
 
 ## 安全
 

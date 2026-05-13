@@ -263,10 +263,13 @@ UnrealBridge/
 
 ## Requirements
 
-- **Unreal Engine 5.3+** with `PythonScriptPlugin` and `GameplayAbilities` (both ship with the engine). The matrix at `tools/build_matrix.py` verifies clean BuildPlugin against 5.3.2 / 5.4.4 / 5.5.4 / 5.6.1 / 5.7.1; some libraries (Chooser / PoseSearch / Material / Navigation + a few standalone UFUNCTIONs) require 5.7+, and 5.3 needs a few inline shims — see [docs/version-compatibility.md](docs/version-compatibility.md). UE 5.2 and earlier are not supported.
+- **Unreal Engine 5.3+** with `PythonScriptPlugin` and `GameplayAbilities` (both ship with the engine). The matrix at `tools/build_matrix.py` verifies clean BuildPlugin against 5.3.2 / 5.4.4 / 5.5.4 / 5.6.1 / 5.7.1 / 5.8.0; some libraries (Chooser / PoseSearch / Material / Navigation + a few standalone UFUNCTIONs) require 5.7+, and a handful of inline shims cover 5.3 and 5.8 — see [docs/version-compatibility.md](docs/version-compatibility.md). UE 5.2 and earlier are not supported.
 - **Windows 10/11** — the plugin itself is portable, but paths inside the helper scripts are hard-coded Windows-style
 - **Python 3.9+** on PATH
-- **Visual Studio 2022** with the UE workload — for plugin compilation
+- **Visual Studio 2022** with the UE workload — for plugin compilation. **Toolchain notes:**
+  - **5.5 / 5.6 / 5.7 / 5.8** work with current MSVC (verified on **14.44.35207**, VS 17.14).
+  - **5.3 / 5.4** require MSVC with `_MSC_VER ≤ 1939` (verified on **14.38.33130**, VS 17.8). Newer MSVCs hit an engine-side `C4668: '__has_feature' is not defined` in `ConcurrentLinearAllocator.h` that 5.3 / 5.4's UBT promotes to a hard error via `/we4668`; 5.5+ guarded the macro and dropped the promotion. To verify 5.3 / 5.4 on a machine with both toolchains installed: pin via `<CompilerVersion>14.38.33130</CompilerVersion>` in `%APPDATA%\Unreal Engine\UnrealBuildTool\BuildConfiguration.xml` for the duration of the build, then restore.
+  - **5.8 source build** (vs. Launcher install) may need the UBA executor disabled if the engine snapshot is missing the `UbaDetours.dll` content normally fetched by `Setup.bat`. Configure via `engines.local.json`'s per-engine `env` block: `"env": { "UnrealBuildTool_BuildConfiguration__bAllowUBAExecutor": "false" }`. UBT falls back to the local ParallelExecutor.
 - **Claude Code CLI** — optional, only if you use the bundled skill
 
 ## Safety
