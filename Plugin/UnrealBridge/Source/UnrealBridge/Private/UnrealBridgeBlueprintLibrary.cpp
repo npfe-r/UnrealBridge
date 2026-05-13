@@ -5073,7 +5073,7 @@ bool UUnrealBridgeBlueprintLibrary::InvokeBlueprintFunction(
 	// params so junk in ArgsJson for an out-only param doesn't pre-populate.
 	if (ArgsObj.IsValid() && ArgsObj->Values.Num() > 0)
 	{
-		TMap<FString, TSharedPtr<FJsonValue>> InputsOnly;
+		TMap<FBridgeJsonAttrsKey, TSharedPtr<FJsonValue>> InputsOnly;
 		for (TFieldIterator<FProperty> It(Func); It && It->HasAnyPropertyFlags(CPF_Parm); ++It)
 		{
 			FProperty* Prop = *It;
@@ -5083,7 +5083,7 @@ bool UUnrealBridgeBlueprintLibrary::InvokeBlueprintFunction(
 			if (bIsReturn) continue;
 			if (bIsOut && !bIsRef) continue;
 			TSharedPtr<FJsonValue> Val = ArgsObj->TryGetField(Prop->GetName());
-			if (Val.IsValid()) InputsOnly.Add(Prop->GetName(), Val);
+			if (Val.IsValid()) InputsOnly.Add(FBridgeJsonAttrsKey(*Prop->GetName()), Val);
 		}
 		FText FailReason;
 		if (InputsOnly.Num() > 0 &&

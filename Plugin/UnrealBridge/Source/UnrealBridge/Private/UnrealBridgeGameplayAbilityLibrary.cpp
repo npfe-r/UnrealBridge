@@ -3291,10 +3291,15 @@ namespace BridgeTagScanImpl
 				if (S.bTruncated) return;
 				const FString KeyPath = FieldPath + TEXT("[<key>]");
 				const FString ValPath = FieldPath + TEXT("[<value>]");
-				// Dereference the iterator to int32 — 5.4+ added overloads taking the
-				// FIterator directly, but the int32 overload exists in both 5.3 and 5.4+.
+				// 5.4+ added FIterator-taking overloads; 5.8 removed `operator*()->int32`
+				// from FIterator. On 5.3 we still need the int32 overload via `*It`.
+#if UE_VERSION_OLDER_THAN(5, 4, 0)
 				ScanProperty(S, MP->KeyProp,   MH.GetKeyPtr(*It),   AssetPath, AssetClass, Context, KeyPath, Depth + 1);
 				ScanProperty(S, MP->ValueProp, MH.GetValuePtr(*It), AssetPath, AssetClass, Context, ValPath, Depth + 1);
+#else
+				ScanProperty(S, MP->KeyProp,   MH.GetKeyPtr(It),   AssetPath, AssetClass, Context, KeyPath, Depth + 1);
+				ScanProperty(S, MP->ValueProp, MH.GetValuePtr(It), AssetPath, AssetClass, Context, ValPath, Depth + 1);
+#endif
 			}
 			return;
 		}
@@ -3306,7 +3311,11 @@ namespace BridgeTagScanImpl
 			{
 				if (S.bTruncated) return;
 				const FString ElemPath = FieldPath + TEXT("[<elem>]");
+#if UE_VERSION_OLDER_THAN(5, 4, 0)
 				ScanProperty(S, SetP->ElementProp, SH.GetElementPtr(*It), AssetPath, AssetClass, Context, ElemPath, Depth + 1);
+#else
+				ScanProperty(S, SetP->ElementProp, SH.GetElementPtr(It), AssetPath, AssetClass, Context, ElemPath, Depth + 1);
+#endif
 			}
 			return;
 		}

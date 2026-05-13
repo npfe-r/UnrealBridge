@@ -384,8 +384,15 @@ namespace BridgeChooserImpl
 #if WITH_EDITOR
 			if (FChooserColumnBase* Base = Col.GetMutablePtr<FChooserColumnBase>())
 			{
+				// 5.8 widened DeleteRows from `const TArray<uint32>&` to
+				// `TArrayView<int>`. Use signed int on 5.8+, keep uint32 on older.
+#if !UE_VERSION_OLDER_THAN(5, 8, 0)
+				int ToDeleteBuf[] = { RowIndex };
+				Base->DeleteRows(MakeArrayView(ToDeleteBuf, 1));
+#else
 				TArray<uint32> ToDelete = { static_cast<uint32>(RowIndex) };
 				Base->DeleteRows(ToDelete);
+#endif
 			}
 #endif
 		}
@@ -984,7 +991,15 @@ FBridgeCHTEvaluation UUnrealBridgeChooserLibrary::EvaluateChooserWithContextObje
 	UChooserTable::EvaluateChooser(Context, CHT, Cb);
 
 #if WITH_EDITOR
+	// 5.8 renamed/pluralised: GetDebugSelectedRow() → GetDebugSelectedRows() returning a TArray.
+#if !UE_VERSION_OLDER_THAN(5, 8, 0)
+	{
+		const TArray<int32>& Selected = CHT->GetDebugSelectedRows();
+		MatchedRow = Selected.Num() > 0 ? Selected[0] : -1;
+	}
+#else
 	MatchedRow = CHT->GetDebugSelectedRow();
+#endif
 #endif
 
 	Out.bSucceeded = (Picked != nullptr);

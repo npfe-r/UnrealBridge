@@ -2,10 +2,11 @@
 
 The plugin claims **Unreal Engine 5.3+**. The build matrix in
 `tools/build_matrix.py` has verified clean BuildPlugin against 5.3 / 5.4 /
-5.5 / 5.6 / 5.7 with the gating below; 5.2 is configured but disabled
+5.5 / 5.6 / 5.7 / 5.8 with the gating below; 5.2 is configured but disabled
 (would need additional pre-5.3 shims). Some features are gated to **5.7+**
 because they depend on engine APIs that don't exist or behave differently
-on the older 5.x's.
+on the older 5.x's. A handful of **5.8-only** shims handle API renames /
+parameter additions that landed in 5.8.
 
 This document lists what's gated. The build matrix in `tools/build_matrix.py`
 verifies the gates by compiling the plugin against each engine version.
@@ -45,7 +46,12 @@ These remain callable on 5.4 — the macro picks the right code path internally.
 | `UnrealBridgeAnimLibrary` — `GetAnimGraphNodes`, `ListAnimSlotsInABP`, `DumpAnimNodeProperties` | `UAnimGraphNode_Base::GetFNode` / `GetFNodeProperty` / `GetFNodeType` were `protected` before 5.4 (made `public` in 5.4) | `BridgeAnimNodeAccess::*` shim — gated at `UE_VERSION_OLDER_THAN(5, 4, 0)`, exposes the protected getters via `using`-declaration in a derived helper struct (compile-time access bypass, never instantiated) |
 | All `TArray::Pop` / `RemoveAt` call sites with explicit shrinking flag | `EAllowShrinking` enum added in 5.4 (replaced `bool bAllowShrinking`) | `Plugin/.../Private/UnrealBridgeCompat.h` — defines `namespace EAllowShrinking { static constexpr bool No, Yes; }` on pre-5.4 so `Array.Pop(EAllowShrinking::No)` resolves to the legacy `bool` overload |
 | `UnrealBridgeBlueprintLibrary` — Blueprint exception/debug paths | `Blueprint/BlueprintExceptionInfo.h` is 5.4+ only (split out of `UObject/Script.h`) | `#if !UE_VERSION_OLDER_THAN(5, 4, 0)` around the include; on 5.3 `FBlueprintExceptionInfo` is reachable via the already-included `UObject/Script.h` |
-| `UnrealBridgeGameplayAbilityLibrary::ScanProperty` map/set iteration | 5.4 added `FScriptMapHelper::GetKeyPtr(FIterator)` / `GetValuePtr(FIterator)` / `FScriptSetHelper::GetElementPtr(FIterator)` overloads; 5.3 only has the `int32` overloads | Pass `*It` (dereferenced iterator → `int32`) to the legacy overload that exists in both 5.3 and 5.4+ — no version macro needed at the call site |
+| `UnrealBridgeGameplayAbilityLibrary::ScanProperty` map/set iteration | 5.4 added `FScriptMapHelper::GetKeyPtr(FIterator)` / `GetValuePtr(FIterator)` / `FScriptSetHelper::GetElementPtr(FIterator)` overloads; 5.3 only has the `int32` overloads; 5.8 removed the deprecated `FIterator::operator*() → int32` so `*It` no longer compiles there | Per-call gate `#if UE_VERSION_OLDER_THAN(5, 4, 0)`: pass `*It` to the int32 overload on 5.3; on 5.4+ pass `It` directly to the FIterator overload (works through 5.8) |
+| `UnrealBridgeBlueprintLibrary::ExecuteBlueprintFunction` and `UnrealBridgeLevelLibrary::ExecuteActorFunction` JSON args | 5.8 changed `FJsonObjectConverter::JsonAttributesToUStruct`'s first parameter from `TMap<FString, ...>` to `TMap<UE::FSharedString, ...>` (also `FJsonObject::Values`) | `Private/UnrealBridgeCompat.h` defines `FBridgeJsonAttrsKey` (`FString` on <5.8, `UE::FSharedString` on 5.8+); call sites build the map with that alias and `.Add(FBridgeJsonAttrsKey(*Prop->GetName()), Val)` works on every version (both `FString` and `UE::FSharedString` have a `const TCHAR*` ctor) |
+| `UnrealBridgeReactiveSubsystem` JSON-object key copy | Same `FJsonObject::Values` 5.8 widening as above — `Pair.Key` is `UE::FSharedString` on 5.8 and won't convert implicitly to `FString` map key | Use `FString(*Pair.Key)` at the insertion site — `operator*` on both string types returns `const TCHAR*`, so the construction works on every version with no macro |
+| `UnrealBridgeChooserLibrary::DeleteChooserRow` | 5.8 changed `FChooserColumnBase::DeleteRows` from `const TArray<uint32>&` to `TArrayView<int>` | `#if !UE_VERSION_OLDER_THAN(5, 8, 0)`: build a stack `int[]` and pass `MakeArrayView`; legacy: keep the `TArray<uint32>` form |
+| `UnrealBridgeChooserLibrary::EvaluateChooser` debug-row readback | 5.8 renamed `UChooserTable::GetDebugSelectedRow() → int32` to `GetDebugSelectedRows() → const TArray<int32>&` (multi-row support) | `#if !UE_VERSION_OLDER_THAN(5, 8, 0)`: read `GetDebugSelectedRows()[0]` if non-empty, else `-1`; legacy: keep the singular `GetDebugSelectedRow()` |
+| `UnrealBridgeGeometryLibrary::DisplaceMeshFromTexture` | 5.8 inserted a new `FGeometryScriptAdaptiveTessellationOptions` parameter (position 5) into `UGeometryScriptLibrary_MeshDeformFunctions::ApplyDisplaceFromTextureMap` | `#if !UE_VERSION_OLDER_THAN(5, 8, 0)`: pass a default-constructed `FGeometryScriptAdaptiveTessellationOptions{}` between `Options` and `UVChannel`; legacy: omit the parameter |
 
 ## How the gate macro works
 
@@ -80,6 +86,7 @@ Last verified versions:
 - UE 5.5 (point release: 5.5.4)
 - UE 5.6 (point release: 5.6.1)
 - UE 5.7 (point release: 5.7.1)
+- UE 5.8 (point release: 5.8.0, source build) — requires `UnrealBuildTool_BuildConfiguration__bAllowUBAExecutor=false` env var (configured per-engine via `tools/engines.local.json`'s `env` block) on engine snapshots that lack the `UbaDetours.dll` content fetched by Setup.bat. UAT detours-injects `UbaDetours.dll` into cl.exe; the env var disables UBA and falls back to the local ParallelExecutor
 
 **5.2 is known-broken and unsupported.** The matrix was exercised against
 it once (2026-05-06) and surfaced API drifts in PerfLibrary

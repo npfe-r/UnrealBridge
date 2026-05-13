@@ -600,8 +600,15 @@ bool UUnrealBridgeGeometryLibrary::MeshDisplaceFromTexture(int32 Handle, const F
 	// UVScale, UVOffset, Center, ImageChannel — engine defaults (1, 0, 0.5, 0).
 
 	FGeometryScriptMeshSelection EmptySelection;  // empty = whole mesh
+#if !UE_VERSION_OLDER_THAN(5, 8, 0)
+	// 5.8 inserted FGeometryScriptAdaptiveTessellationOptions before UVChannel.
+	FGeometryScriptAdaptiveTessellationOptions TessellationOptions{};
+	UDynamicMesh* Result = UGeometryScriptLibrary_MeshDeformFunctions::ApplyDisplaceFromTextureMap(
+		Mesh, Tex, EmptySelection, Options, TessellationOptions, FMath::Max(0, UVChannel), /*Debug=*/nullptr);
+#else
 	UDynamicMesh* Result = UGeometryScriptLibrary_MeshDeformFunctions::ApplyDisplaceFromTextureMap(
 		Mesh, Tex, EmptySelection, Options, FMath::Max(0, UVChannel), /*Debug=*/nullptr);
+#endif
 	return Result == Mesh;
 }
 

@@ -1163,7 +1163,10 @@ namespace BridgeReactivePersistenceImpl
 			{
 				if (Pair.Value.IsValid() && Pair.Value->Type == EJson::String)
 				{
-					Out.RegistrationContext.Add(Pair.Key, Pair.Value->AsString());
+					// FJsonObject::Values became TMap<UE::FSharedString,...> in 5.8;
+					// `*Pair.Key` is const TCHAR* on every version (FString::operator*
+					// pre-5.8, FSharedString::operator* on 5.8+).
+					Out.RegistrationContext.Add(FString(*Pair.Key), Pair.Value->AsString());
 				}
 			}
 		}

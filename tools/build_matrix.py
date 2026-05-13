@@ -56,6 +56,7 @@ class EngineConfig:
     version: str
     path: Path
     enabled: bool = True
+    env: dict = field(default_factory=dict)
 
 @dataclass
 class EngineResult:
@@ -88,6 +89,7 @@ def load_config() -> tuple[list[EngineConfig], list[str], Path]:
             version=str(e["version"]),
             path=Path(e["path"]),
             enabled=bool(e.get("enabled", True)),
+            env={str(k): str(v) for k, v in (e.get("env") or {}).items()},
         )
         for e in data.get("engines", [])
     ]
@@ -147,7 +149,7 @@ def run_engine(eng: EngineConfig, build_args: list[str], verbose: bool, keep_pac
         *build_args,
     ]
     # Force MSVC to emit English diagnostics so logs stay UTF-8 compatible.
-    env = {**os.environ, "VSLANG": "1033"}
+    env = {**os.environ, "VSLANG": "1033", **eng.env}
 
     started = datetime.now()
     started_iso = started.isoformat(timespec="seconds")

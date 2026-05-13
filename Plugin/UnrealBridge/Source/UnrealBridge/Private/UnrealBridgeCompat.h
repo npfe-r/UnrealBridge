@@ -16,3 +16,17 @@ namespace EAllowShrinking
 	static constexpr bool Yes = true;
 }
 #endif
+
+// ─── JsonAttributesToUStruct key type (5.8) ─────────────────
+// 5.8 changed the first parameter of FJsonObjectConverter::JsonAttributesToUStruct
+// from `TMap<FString, TSharedPtr<FJsonValue>>` to
+// `TMap<UE::FSharedString, TSharedPtr<FJsonValue>>`. Call sites use this alias as
+// the local map key type so the same code compiles on every supported engine.
+// UE::FSharedString has a `const TCHAR*` ctor — wrap FString keys as
+// `FBridgeJsonAttrsKey(*StringValue)` when inserting.
+#if !UE_VERSION_OLDER_THAN(5, 8, 0)
+#include "Containers/SharedString.h"
+using FBridgeJsonAttrsKey = UE::FSharedString;
+#else
+using FBridgeJsonAttrsKey = FString;
+#endif
