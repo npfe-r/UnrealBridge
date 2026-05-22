@@ -3,7 +3,14 @@
 #include "Misc/EngineVersionComparison.h"
 #include "UnrealBridgeTypeParse.h"
 
-#include "Engine/UserDefinedStruct.h"
+// UUserDefinedStruct header was renamed: lived under `Engine/` in 5.3/5.4,
+// moved to `StructUtils/` from 5.5 onwards (the legacy path remained as an
+// alias through 5.7 but was removed in 5.8). Pick by version.
+#if UE_VERSION_OLDER_THAN(5, 5, 0)
+	#include "Engine/UserDefinedStruct.h"
+#else
+	#include "StructUtils/UserDefinedStruct.h"
+#endif
 #include "Kismet2/StructureEditorUtils.h"
 // Brings in the full definition of FStructVariableDescription (forward-declared
 // in StructureEditorUtils.h). GetVarDesc / DescToPinType access its fields.
